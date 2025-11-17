@@ -1,0 +1,6 @@
+{
+  "app": { "name": "Aprecie Antofagasta" },
+  "home": { "welcome": "Bem-vindo!", "featured": "Destaques", "search": "Para onde ir?" },
+  "tabs": { "home": "Início", "places": "Lugares", "map": "Mapa", "favorites": "Favoritos" },
+  "actions": { "retry": "Tentar novamente" }
+}

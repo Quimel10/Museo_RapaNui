@@ -1,0 +1,6 @@
+{
+  "app": { "name": "Enjoy Antofagasta" },
+  "home": { "welcome": "Welcome!", "featured": "Highlights", "search": "Where to go?" },
+  "tabs": { "home": "Home", "places": "Places", "map": "Map", "favorites": "Favorites" },
+  "actions": { "retry": "Retry" }
+}

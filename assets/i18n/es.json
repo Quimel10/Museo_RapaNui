@@ -1,0 +1,6 @@
+{
+  "app": { "name": "Disfruta Antofagasta" },
+  "home": { "welcome": "¡Bienvenido!", "featured": "Destacados", "search": "¿Qué visitar?" },
+  "tabs": { "home": "Inicio", "places": "Qué visitar", "map": "Mapa", "favorites": "Favoritos" },
+  "actions": { "retry": "Reintentar" }
+}

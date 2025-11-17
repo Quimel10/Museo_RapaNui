@@ -1,0 +1,6 @@
+{
+  "app": { "name": "Profite d'Antofagasta" },
+  "home": { "welcome": "Bienvenue !", "featured": "À la une", "search": "Où aller ?" },
+  "tabs": { "home": "Accueil", "places": "Lieux", "map": "Carte", "favorites": "Favoris" },
+  "actions": { "retry": "Réessayer" }
+}
