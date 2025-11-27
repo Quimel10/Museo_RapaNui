@@ -1,4 +1,4 @@
-package looksgood.disfruta_antofagasta
+package cl.unb.museorapanui
 
 import io.flutter.embedding.android.FlutterActivity
 
