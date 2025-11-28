@@ -1,0 +1,45 @@
+workflows:
+  ios_workflow:
+    name: Museo RapaNui iOS
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Flutter clean
+        script: |
+          flutter clean
+
+      - name: Install dependencies
+        script: |
+          flutter pub get
+
+      - name: Build IPA
+        script: |
+          flutter build ios --release --no-codesign
+
+      - name: Archive and export IPA
+        script: |
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release archive \
+            -archivePath build/ios/archive
+
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive.xcarchive \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath build/ios/ipa
+
+      - name: Rename IPA
+        script: |
+          echo "Renombrando IPA a MuseoRapaNui.ipa"
+          IPA_ORIGINAL=$(ls build/ios/ipa/*.ipa | head -n 1)
+          mv "$IPA_ORIGINAL" build/ios/ipa/MuseoRapaNui.ipa
+          echo "IPA final: build/ios/ipa/MuseoRapaNui.ipa"
+
+    artifacts:
+      - build/ios/ipa/MuseoRapaNui.ipa
+      - build/ios/ipa/*.dSYM.zip
