@@ -2,7 +2,7 @@ name: disfruta_antofagasta
 description: "Museo RapaNui - Isla de Pascua"
 publish_to: 'none'
 
-version: 1.0.3+9
+version: 1.0.4+10   # nueva versión limpia para Apple
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
@@ -18,7 +18,7 @@ dependencies:
   intl: ^0.20.2
   dio: ^5.9.0
   connectivity_plus: ^6.1.5
-  google_fonts: ^6.3.2
+  google_fonts: ^6.3.1
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
   flutter_dotenv: ^6.0.0
@@ -36,22 +36,17 @@ dependencies:
   animations: ^2.1.0
   audioplayers: ^6.1.0
   just_audio: ^0.9.42
+
+  # 👉 Nuevo escáner QR compatible iOS + Android (NO usa MLKit)
   qr_code_scanner: ^1.0.1
 
-
-
-  # 👇 librería para renderizar HTML
+  # 👇 Librería para renderizar HTML
   flutter_html: ^3.0.0-beta.2
-  dtd: ^4.0.0
-  flutter_lints: ^6.0.0
-  json_rpc_2: ^4.0.0
-  path: ^1.9.1
-  stack_trace: ^1.12.1
-  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
@@ -78,6 +73,7 @@ flutter:
 
 flutter_launcher_icons:
   android: true
+  ios: true
   image_path: "assets/logo_museo.png"
   min_sdk_android: 21
 
