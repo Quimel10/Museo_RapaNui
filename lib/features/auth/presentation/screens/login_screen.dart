@@ -1,5 +1,6 @@
 // lib/features/auth/presentation/screens/login_screen.dart
 import 'package:animations/animations.dart';
+import 'package:disfruta_antofagasta/config/theme/theme_config.dart';
 
 import 'package:disfruta_antofagasta/features/auth/presentation/form/forgot_form.dart';
 import 'package:disfruta_antofagasta/features/auth/presentation/form/guest_form.dart';
@@ -10,7 +11,7 @@ import 'package:disfruta_antofagasta/features/auth/presentation/form/register_fo
 import 'package:disfruta_antofagasta/features/auth/presentation/state/auth/auth_provider.dart';
 import 'package:disfruta_antofagasta/features/auth/presentation/widgets/auth_tab_bar.dart';
 import 'package:disfruta_antofagasta/features/auth/presentation/widgets/glass_card.dart';
-import 'package:disfruta_antofagasta/features/auth/presentation/widgets/waves_background.dart';
+// import 'package:disfruta_antofagasta/features/auth/presentation/widgets/waves_background.dart';
 
 import 'package:disfruta_antofagasta/shared/provider/auth_mode_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/forgot_mode_provider.dart';
@@ -61,10 +62,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final forgot = ref.watch(forgotModeProvider);
 
     return Scaffold(
+      backgroundColor: AppColors.parchment, // fondo oscuro tipo Louvre
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const WavesBackground(),
+          // Fondo negro liso
+          Container(color: AppColors.parchment),
+
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -75,9 +79,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 460),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Image.asset('assets/logo.png', height: 200),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 32),
+
+                      // 🔹 Logo MAPSE Museo Rapa Nui
+                      Image.asset(
+                        'assets/logo.png', // ya reemplazado por el nuevo
+                        height: 110, // antes 200, ahora más elegante
+                        fit: BoxFit.contain,
+                      ),
+
+                      const SizedBox(height: 32),
 
                       // Ocultamos las pestañas cuando estamos en modo "olvidé contraseña"
                       forgot
@@ -142,7 +155,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       AuthMode.guest => const GuestForm(
                                         key: ValueKey('guest'),
                                       ),
-
                                       AuthMode.register => const RegisterForm(
                                         key: ValueKey('register'),
                                       ),

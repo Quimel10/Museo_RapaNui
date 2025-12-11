@@ -35,11 +35,11 @@ class CategoryChipsList extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: active
-                      ? AppColors.panelWine.withOpacity(0.90)
-                      : AppColors.panelWine.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
+                      ? Colors.white
+                      : AppColors.panel.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: AppColors.panelWine,
+                    color: active ? Colors.white : Colors.white24,
                     width: active ? 2 : 1,
                   ),
                 ),
@@ -48,7 +48,7 @@ class CategoryChipsList extends StatelessWidget {
                     Icon(
                       Icons.place,
                       size: 16,
-                      color: active ? Colors.white : Colors.black,
+                      color: active ? Colors.black : Colors.white,
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -58,7 +58,7 @@ class CategoryChipsList extends StatelessWidget {
                         fontWeight: active
                             ? FontWeight.bold
                             : FontWeight.normal,
-                        color: active ? Colors.white : Colors.black,
+                        color: active ? Colors.black : Colors.white,
                       ),
                     ),
                   ],

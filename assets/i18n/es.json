@@ -1,10 +1,18 @@
 {
-  "app": { "name": "Museo RapaNui" },
+  "app": {
+    "name": "Museo RapaNui"
+  },
 
   "home": {
     "welcome": "¡Bienvenido!",
     "featured": "Destacados",
-    "search": "¿Qué pieza buscas?"
+    "search": "¿Qué pieza buscas?",
+    "no_featured": "No hay piezas destacadas por ahora.",
+    "info_banners": "Banners informativos",
+    "no_banners": "Por ahora no hay banners informativos.",
+    "banner_load_error": "No pudimos cargar los banners informativos. Inténtalo nuevamente más tarde.",
+    "no_audio": "Esta pieza no tiene audio disponible.",
+    "logout_tooltip": "Cerrar sesión"
   },
 
   "tabs": {
@@ -13,7 +21,8 @@
     "pieces": "Piezas",
     "places": "Piezas",
     "map": "Mapa",
-    "favorites": "Favoritos"
+    "favorites": "Favoritos",
+    "search": "Buscar"
   },
 
   "pieces": {
@@ -21,7 +30,34 @@
     "search": "¿Qué pieza buscar?"
   },
 
+  "piece_detail": {
+    "description_title": "Descripción",
+    "references_title": "Referencias:",
+    "images_title": "Imágenes de la pieza",
+    "play_audio": "Reproducir audio",
+    "pause_audio": "Pausar audio",
+    "load_error": "No se pudo cargar la pieza.",
+    "not_found": "Pieza no encontrada."
+  },
+
+   "player": {
+    "play_audio": "Reproducir audio",
+    "pause_audio": "Pausar audio",
+    "loading_audio": "Cargando audio...",
+    "audio_error": "No se pudo reproducir el audio."
+  },
+
   "actions": {
     "retry": "Reintentar"
+  },
+
+  "errors": {
+    "place_not_loaded": "No se pudo cargar la pieza.",
+    "place_not_found": "La pieza no fue encontrada."
+  },
+
+  "place": {
+    "description": "Descripción",
+    "images_of_piece": "Imágenes de la pieza"
   }
 }

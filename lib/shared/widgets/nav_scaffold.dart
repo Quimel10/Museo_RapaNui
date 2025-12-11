@@ -1,13 +1,13 @@
-import 'package:disfruta_antofagasta/config/theme/theme_config.dart';
-import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
+// lib/shared/widgets/nav_scaffold.dart
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:easy_localization/easy_localization.dart';
 
-class NavScaffold extends ConsumerWidget {
-  const NavScaffold({super.key, required this.navigationShell});
+class NavScaffold extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
+
+  const NavScaffold({super.key, required this.navigationShell});
 
   void _onTap(int index) {
     navigationShell.goBranch(
@@ -17,88 +17,99 @@ class NavScaffold extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final lang = ref.watch(languageProvider);
+  Widget build(BuildContext context) {
+    // 👇 ESTA ES LA CLAVE: fuerza reconstrucción al cambiar idioma
+    final localeKey = ValueKey(context.locale.toString());
 
-    const double barHeight = 68;
+    return Scaffold(
+      body: navigationShell,
+      bottomNavigationBar: BottomNavigationBar(
+        key: localeKey, // 👈 reconstruye al cambiar idioma
+        currentIndex: navigationShell.currentIndex,
+        onTap: _onTap,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.black,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white60,
+        items: [
+          // 0 - ESCANEAR
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.qr_code_scanner),
+            label: 'tabs.scan'.tr(),
+          ),
 
-    // 🎨 Nueva paleta vinotinto
-    const Color bg = AppColors.sandLight;
-    const Color unselected = AppColors.panelWine; // vinotinto claro
-    const Color selected = AppColors.panelWineDark; // vinotinto oscuro
+          // 1 - INICIO
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home_filled),
+            label: 'tabs.home'.tr(),
+          ),
 
-    return Stack(
-      children: [
-        // Fondo pergamino para TODA la app
-        Container(
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/bg_portada.png'),
-              fit: BoxFit.cover,
+          // 2 - BUSCAR
+          BottomNavigationBarItem(
+            icon: const _SearchGridIcon(),
+            label: 'tabs.search'.tr(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ícono personalizado de búsqueda
+class _SearchGridIcon extends StatelessWidget {
+  const _SearchGridIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = IconTheme.of(context).color ?? Colors.white;
+
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Círculo de la lupa
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              border: Border.all(color: color, width: 1.6),
+              shape: BoxShape.circle,
             ),
           ),
-        ),
 
-        // Contenido principal de la app
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          body: navigationShell,
-          extendBody: true,
-          bottomNavigationBar: Container(
-            color: bg.withOpacity(0.92),
-            child: NavigationBarTheme(
-              data: NavigationBarThemeData(
-                height: barHeight,
-                backgroundColor: Colors.transparent,
-                indicatorColor: Colors.transparent,
+          // Grid interno
+          SizedBox(
+            width: 10,
+            height: 10,
+            child: Wrap(
+              spacing: 1.3,
+              runSpacing: 1.3,
+              children: List.generate(9, (_) {
+                return Container(width: 2.2, height: 2.2, color: color);
+              }),
+            ),
+          ),
 
-                // 🔥 Colores de texto: vinotinto oscuro claro y oscuro
-                labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                  final isSelected = states.contains(WidgetState.selected);
-                  return TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? selected : unselected,
-                  );
-                }),
-
-                // 🔥 Íconos vinotinto
-                iconTheme: WidgetStateProperty.resolveWith((states) {
-                  final isSelected = states.contains(WidgetState.selected);
-                  return IconThemeData(
-                    color: isSelected ? selected : unselected,
-                    size: isSelected ? 25 : 23,
-                  );
-                }),
-              ),
-
-              child: NavigationBar(
-                key: ValueKey('nav-$lang'),
-                elevation: 0,
-                selectedIndex: navigationShell.currentIndex,
-                onDestinationSelected: _onTap,
-                destinations: [
-                  NavigationDestination(
-                    icon: const Icon(Icons.home_outlined),
-                    selectedIcon: const Icon(Icons.home),
-                    label: tr('tabs.home'),
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.qr_code_scanner_outlined),
-                    selectedIcon: const Icon(Icons.qr_code_scanner),
-                    label: tr('tabs.scan'),
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.museum_outlined),
-                    selectedIcon: const Icon(Icons.museum),
-                    label: tr('tabs.pieces'),
-                  ),
-                ],
+          // Mango diagonal
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Transform.rotate(
+              angle: math.pi / 4,
+              child: Container(
+                width: 8,
+                height: 2,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

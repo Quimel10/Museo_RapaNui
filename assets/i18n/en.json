@@ -1,10 +1,16 @@
 {
-  "app": { "name": "Rapa Nui Museum" },
+  "app": { "name": "RapaNui Museum" },
 
   "home": {
     "welcome": "Welcome!",
     "featured": "Featured",
-    "search": "What piece are you looking for?"
+    "search": "What piece are you looking for?",
+    "no_featured": "There are no featured pieces for now.",
+    "info_banners": "Informative banners",
+    "no_banners": "There are no informative banners for now.",
+    "banner_load_error": "We couldn't load the informative banners. Please try again later.",
+    "no_audio": "This piece has no audio available.",
+    "logout_tooltip": "Log out"
   },
 
   "tabs": {
@@ -13,7 +19,8 @@
     "pieces": "Pieces",
     "places": "Pieces",
     "map": "Map",
-    "favorites": "Favorites"
+    "favorites": "Favorites",
+    "search": "Search"
   },
 
   "pieces": {
@@ -21,7 +28,34 @@
     "search": "What piece are you looking for?"
   },
 
+  "piece_detail": {
+    "description_title": "Description",
+    "references_title": "References:",
+    "images_title": "Images of the piece",
+    "play_audio": "Play audio",
+    "pause_audio": "Pause audio",
+    "load_error": "The piece could not be loaded.",
+    "not_found": "Piece not found."
+  },
+
+  "player": {
+    "play_audio": "Play audio",
+    "pause_audio": "Pause audio",
+    "loading_audio": "Loading audio...",
+    "audio_error": "Couldn't play the audio."
+  },
+
   "actions": {
     "retry": "Retry"
+  },
+
+  "errors": {
+    "place_not_loaded": "The piece could not be loaded.",
+    "place_not_found": "The piece was not found."
+  },
+
+  "place": {
+    "description": "Description",
+    "images_of_piece": "Images of the piece"
   }
 }

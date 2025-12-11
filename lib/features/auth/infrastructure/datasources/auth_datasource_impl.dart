@@ -16,6 +16,7 @@ import 'package:disfruta_antofagasta/shared/services/key_value_storage_service.d
 class AuthDataSourceImpl extends AuthDataSource {
   final Dio dio;
   late final KeyValueStorageService keyValueStorageService;
+
   AuthDataSourceImpl({Dio? dio, required this.keyValueStorageService})
     : dio = dio ?? Dio(BaseOptions(baseUrl: Environment.apiUrl)) {
     this.dio.interceptors.add(
@@ -30,19 +31,21 @@ class AuthDataSourceImpl extends AuthDataSource {
       ),
     );
   }
+
   @override
   Future<Map<String, String>> forgot(String email) {
     throw UnimplementedError();
   }
 
+  // ⬇⬇⬇ MÉTODO GUEST (con daysStay en la firma)
   @override
   Future<Auth> guest({
     required String name,
     required String countryCode,
     int? regionId,
     String? device,
-    int? day,
     int? age,
+    int? daysStay,
   }) async {
     try {
       final res = await dio.post(
@@ -51,16 +54,19 @@ class AuthDataSourceImpl extends AuthDataSource {
           'name': name,
           'country_code': countryCode,
           'region_id': regionId,
-          'days_stay': day,
+          'device': device,
           'age': age,
+          'days_stay': daysStay,
         },
       );
+
       final data = res.data as Map<String, dynamic>;
       return AuthMapper.fromGuestJson(data);
     } catch (e) {
       throw CustomError('Error desconocido');
     }
   }
+  // ⬆⬆⬆ FIN GUEST
 
   @override
   Future<Auth> login(String email, String password) async {
@@ -75,12 +81,9 @@ class AuthDataSourceImpl extends AuthDataSource {
       }
       final apiResponse = AuthMapper.fromLoginJson(response.data);
       return apiResponse;
-      // ignore: unused_catch_clause
-    } on DioException catch (e) {
-      // No pierdas la respuesta del backend:
+    } on DioException {
       rethrow;
-    } catch (e) {
-      // último fallback
+    } catch (_) {
       throw Exception('Error desconocido');
     }
   }
@@ -108,11 +111,9 @@ class AuthDataSourceImpl extends AuthDataSource {
   @override
   Future<Auth> me() async {
     try {
-      // 1) Preferimos la base antofa/v1
       final res = await dio.get('/me');
       return AuthMapper.fromLoginJson(res.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      // 2) Fallback: algunos setups lo exponen en app/v1/antofa/me
       if (e.response?.statusCode == 404) {
         final res = await dio.get('/me');
         return AuthMapper.fromLoginJson(res.data as Map<String, dynamic>);
@@ -167,6 +168,6 @@ class AuthDataSourceImpl extends AuthDataSource {
       data: {'email': email, 'code': code, 'new_password': newPassword},
       options: Options(validateStatus: (s) => s != null && s >= 200 && s < 300),
     );
-    return AuthMapper.fromLoginJson(res.data); // igual que login/register
+    return AuthMapper.fromLoginJson(res.data);
   }
 }

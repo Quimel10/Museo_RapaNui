@@ -1,6 +1,8 @@
 import 'package:disfruta_antofagasta/config/constants/enviroment.dart';
 import 'package:disfruta_antofagasta/config/router/app_router.dart';
 import 'package:disfruta_antofagasta/config/theme/theme_provider.dart';
+import 'package:disfruta_antofagasta/shared/session_manager.dart';
+import 'package:disfruta_antofagasta/shared/session_flag.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +22,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
   await Environment.initEnvironment();
+
+  // 👇 LEER SESIÓN GUARDADA ANTES DE LEVANTAR LA APP
+  final session = await SessionManager.loadSession();
+
+  // Seteamos el flag global para que el router sepa si hay sesión
+  SessionFlag.hasPersistedSession = session.hasSession;
 
   runApp(
     EasyLocalization(
@@ -60,8 +68,6 @@ class MainApp extends ConsumerWidget {
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: themeMode,
-
-      // 💥 ESTA LÍNEA ELIMINA EL BRILLO AZUL GLOBAL
       scrollBehavior: NoGlowScrollBehavior(),
     );
   }

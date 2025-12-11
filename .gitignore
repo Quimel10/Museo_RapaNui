@@ -45,3 +45,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local plugin - do not commit example apps
+packages/qr_code_scanner/example/
+
+# Pub cache locks in local packages
+packages/**/pubspec.lock

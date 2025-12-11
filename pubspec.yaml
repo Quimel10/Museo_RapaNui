@@ -1,4 +1,4 @@
-name: disfruta_antofagasta
+name: disfruta_antofagasta  
 description: "Museo RapaNui - Isla de Pascua"
 publish_to: 'none'
 
@@ -15,7 +15,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
   go_router: ^16.2.1
-  shared_preferences: ^2.5.3
   intl: ^0.20.2
   dio: ^5.9.0
   connectivity_plus: ^6.1.5
@@ -34,14 +33,15 @@ dependencies:
   formz: ^0.8.0
   animations: ^2.1.0
   audioplayers: ^6.1.0
-  just_audio: ^0.9.42
+  just_audio: ^0.9.39
+  shared_preferences: ^2.2.2   # ← única y correcta
 
   # 👉 plugin local de QR
   qr_code_scanner:
     path: packages/qr_code_scanner
 
-  # Renderizado de HTML
-  flutter_html: ^3.0.0-beta.2
+  # Renderizado de HTML (para respetar formato de WordPress)
+  flutter_html: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -68,26 +68,39 @@ flutter:
     - assets/weather/9.png
     - assets/logo.png
     - assets/logo_museo.png
-    - assets/icon_ios.png        # 👈 lo agregamos por si lo necesitás en el proyecto
+    - assets/icon_ios.png
     - assets/bg_portada.png
     - assets/pdf/antofagasta-mapa-turistico-mobile-small.pdf
     - assets/i18n/es.json
     - assets/i18n/en.json
     - assets/i18n/pt.json
     - assets/i18n/fr.json
+    - assets/icons/mapse_launcher.png
 
-# Configuración de iconos
+# ===========================================
+# 🔥 CONFIGURACIÓN DE ICONOS (MAPSE)
+# ===========================================
 flutter_launcher_icons:
   android: true
-  ios: true
-  image_path: "assets/logo_museo.png"    # Android puede usar PNG con transparencia
-  image_path_ios: "assets/icon_ios.png"  # iOS necesita un ícono sin transparencia
-  remove_alpha_ios: true                 # Obligatorio para pasar revisión
+  ios: false          # por ahora solo Android
+
+  # Icono base (512x512) para Android
+  image_path_android: "assets/icons/mapse_launcher.png"
+
+  # Adaptive icon (Android) – fondo blanco, símbolo gris
+  adaptive_icon_background: "#FFFFFFFF"
+  adaptive_icon_foreground: "assets/icons/mapse_launcher.png"
+
   min_sdk_android: 21
 
-# Configuración de splash
+# ===========================================
+# 🔥 CONFIGURACIÓN SPLASH SCREEN
+# ===========================================
+# Ojo: el splash de ANDROID ya lo configuramos a mano
+# con launch_background.xml y styles.xml (Android 12+).
+# Aquí solo dejamos preparado iOS.
 flutter_native_splash:
-  color: "#ffffff"
-  image: assets/logo_museo.png
-  android: true
+  color: "#000000"
+  image: assets/icons/mapse_launcher.png
+  android: false      # no tocar Android desde el plugin
   ios: true

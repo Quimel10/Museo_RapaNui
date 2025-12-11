@@ -1,22 +1,29 @@
 class PlaceEntity {
   final int id;
   final String titulo;
-  final String? publicado; // opcional
+  final String? publicado;
   final String descCorta;
-  final String descLarga; // contenido largo en texto plano / fallback
-  final String?
-  descLargaHtml; // 👈 NUEVO: contenido con HTML (párrafos, negritas, etc.)
+
+  // Texto plano
+  final String descLarga;
+
+  // HTML desde WordPress (con <p>, <br>, <strong>, etc.)
+  final String? descLargaHtml;
+
   final String latitud;
   final String longitud;
   final String tipo;
   final int tipoId;
   final String tipoIcono;
-  final String? tipoPin; // opcional
-  final String? tipoColor; // opcional
+  final String? tipoPin;
+  final String? tipoColor;
+
   final String imagen;
   final String imagenHigh;
-  final List<String> imgThumb; // miniaturas
-  final List<String> imgMedium; // fotos en tamaño medio
+
+  final List<String> imgThumb;
+  final List<String> imgMedium;
+
   final String audio;
 
   PlaceEntity({
@@ -25,7 +32,7 @@ class PlaceEntity {
     this.publicado,
     required this.descCorta,
     required this.descLarga,
-    this.descLargaHtml, // 👈 NUEVO
+    this.descLargaHtml,
     required this.latitud,
     required this.longitud,
     required this.tipo,

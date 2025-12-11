@@ -1,3 +1,4 @@
+// lib/config/router/app_router.dart
 import 'package:disfruta_antofagasta/features/scan/presentation/screens/qr_scanner_screen.dart';
 import 'package:disfruta_antofagasta/config/router/app_router_notifier.dart';
 import 'package:disfruta_antofagasta/config/router/routes.dart';
@@ -8,32 +9,44 @@ import 'package:disfruta_antofagasta/features/places/presentation/screens/place_
 import 'package:disfruta_antofagasta/features/places/presentation/screens/places_screen.dart';
 import 'package:disfruta_antofagasta/shared/widgets/nav_scaffold.dart';
 import 'package:disfruta_antofagasta/shared/widgets/splash_gate.dart';
+import 'package:disfruta_antofagasta/shared/session_flag.dart';
+import 'package:disfruta_antofagasta/shared/audio/now_playing_player.dart';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final goRouterNotifier = ref.read(goRouterNotifierProvider);
 
+  // Flag global seteado en main()
+  final hasPersistedSession = SessionFlag.hasPersistedSession;
+
+  // Si hay sesión persistida, arrancamos en HOME.
+  // Si no, arrancamos en SPLASH como siempre.
+  final initialLocation = hasPersistedSession ? AppPath.home : AppPath.splash;
+
   return GoRouter(
-    initialLocation: AppPath.splash,
+    initialLocation: initialLocation,
     debugLogDiagnostics: false,
     refreshListenable: goRouterNotifier,
 
     routes: [
+      // LOGIN
       GoRoute(
-        path: '/login',
+        path: AppPath.login,
         name: AppRoute.login,
-        builder: (context, state) {
-          return LoginScreen();
-        },
+        builder: (context, state) => LoginScreen(),
       ),
+
+      // SPLASH
       GoRoute(
-        path: '/splash',
+        path: AppPath.splash,
         name: AppRoute.splash,
-        builder: (context, state) {
-          return SplashGate();
-        },
+        builder: (context, state) => SplashGate(),
       ),
+
+      // DETALLE DE PIEZA
       GoRoute(
         path: '/place/:id',
         name: AppRoute.place,
@@ -42,12 +55,35 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           return PlaceDetailsScreen(placeId: placeId);
         },
       ),
-      // Mantiene estado por pestaña con IndexedStack
+
+      // ============================
+      //  SHELL CON BOTTOM NAV + MINI PLAYER
+      // ============================
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            NavScaffold(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) {
+          return Stack(
+            children: [
+              // Navegación principal (tabs)
+              NavScaffold(navigationShell: navigationShell),
+
+              // Mini reproductor flotante
+              const NowPlayingMiniBar(),
+            ],
+          );
+        },
         branches: [
-          // 0 - INICIO
+          // 0 - ESCANEAR QR  (IZQUIERDA)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/scan',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: QrScannerScreen()),
+              ),
+            ],
+          ),
+
+          // 1 - INICIO (CENTRO)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -59,19 +95,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // 1 - ESCANEAR QR
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                // ruta interna para el tab de escaneo
-                path: '/scan',
-                pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: QrScannerScreen()),
-              ),
-            ],
-          ),
-
-          // 2 - PIEZAS (antes places / "Qué visitar")
+          // 2 - PIEZAS (DERECHA, SE MOSTRARÁ COMO "Buscar")
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -85,20 +109,34 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
     ],
+
+    // ============================
+    // REDIRECTS POR AUTH
+    // ============================
     redirect: (context, state) {
-      final authStatus = goRouterNotifier.authStatus;
       final loggingIn = state.matchedLocation == AppPath.login;
       final onSplash = state.matchedLocation == AppPath.splash;
 
+      final authStatus = goRouterNotifier.authStatus;
+
+      // 1) Si HAY sesión persistida
+      if (SessionFlag.hasPersistedSession) {
+        if (loggingIn || onSplash) {
+          return AppPath.home;
+        }
+        return null;
+      }
+
+      // 2) Si NO hay sesión persistida
       if (authStatus == AuthStatus.checking) {
         return onSplash ? null : AppPath.splash;
       }
+
       if (authStatus == AuthStatus.notAuthenticated) {
         return loggingIn ? null : AppPath.login;
       }
 
       if (authStatus == AuthStatus.authenticated) {
-        // Si ya estás autenticado, evita quedarte en /login o /splash
         if (loggingIn || onSplash) return AppPath.home;
         return null;
       }

@@ -1,27 +1,63 @@
 {
-  "app": { "name": "Museu RapaNui" },
+  "app": {
+    "name": "Museu RapaNui"
+  },
 
   "home": {
     "welcome": "Bem-vindo!",
     "featured": "Destaques",
-    "search": "Que peça você procura?"
+    "search": "Que peça você procura?",
+    "no_featured": "Não há peças em destaque no momento.",
+    "info_banners": "Banners informativos",
+    "no_banners": "Não há banners informativos no momento.",
+    "banner_load_error": "Não foi possível carregar os banners informativos. Tente novamente mais tarde.",
+    "no_audio": "Esta peça não possui áudio disponível.",
+    "logout_tooltip": "Sair"
   },
 
   "tabs": {
     "home": "Início",
-    "scan": "Escanear QR",
+    "scan": "Ler QR",
     "pieces": "Peças",
     "places": "Peças",
     "map": "Mapa",
-    "favorites": "Favoritos"
+    "favorites": "Favoritos",
+    "search": "Buscar"
   },
 
   "pieces": {
     "title": "Peças",
-    "search": "Que peça você procura?"
+    "search": "Que peça deseja buscar?"
+  },
+
+  "piece_detail": {
+    "description_title": "Descrição",
+    "references_title": "Referências:",
+    "images_title": "Imagens da peça",
+    "play_audio": "Reproduzir áudio",
+    "pause_audio": "Pausar áudio",
+    "load_error": "Não foi possível carregar a peça.",
+    "not_found": "Peça não encontrada."
+  },
+
+  "player": {
+    "play_audio": "Reproduzir áudio",
+    "pause_audio": "Pausar áudio",
+    "loading_audio": "Carregando áudio...",
+    "audio_error": "Não foi possível reproduzir o áudio."
   },
 
   "actions": {
     "retry": "Tentar novamente"
+  },
+
+  "errors": {
+    "place_not_loaded": "Não foi possível carregar a peça.",
+    "place_not_found": "A peça não foi encontrada."
+  },
+
+  "place": {
+    "description": "Descrição",
+    "images_of_piece": "Imagens da peça"
   }
 }

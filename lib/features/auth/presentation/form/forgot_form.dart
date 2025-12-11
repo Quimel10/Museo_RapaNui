@@ -25,7 +25,7 @@ class ForgotForm extends ConsumerWidget {
           style: const TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 18,
-            color: Colors.black, // 👈 TÍTULO EN NEGRO
+            color: Colors.white, // 👈 TÍTULO EN BLANCO
           ),
         ),
         const SizedBox(height: 12),
@@ -77,7 +77,7 @@ class ForgotForm extends ConsumerWidget {
             'Ingresa el código y tu nueva contraseña para continuar.',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.black, // 👈 TEXTO AYUDA PASO 2 EN NEGRO
+              color: Colors.white, // 👈 TEXTO AYUDA PASO 2 EN BLANCO
             ),
           ),
           const SizedBox(height: 8),
@@ -86,7 +86,7 @@ class ForgotForm extends ConsumerWidget {
             'Si el correo existe, te enviaremos un código para recuperar tu cuenta.',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.black, // 👈 TEXTO AYUDA PASO 1 EN NEGRO
+              color: Colors.white, // 👈 TEXTO AYUDA PASO 1 EN BLANCO
             ),
           ),
           const SizedBox(height: 8),
@@ -97,7 +97,7 @@ class ForgotForm extends ConsumerWidget {
           const SizedBox(height: 8),
         ],
 
-        // BOTÓN PRINCIPAL MISMO COLOR
+        // BOTÓN PRINCIPAL
         SizedBox(
           height: 52,
           child: ElevatedButton(
@@ -133,7 +133,10 @@ class ForgotForm extends ConsumerWidget {
           },
           child: const Text(
             'Volver a iniciar sesión',
-            style: TextStyle(color: Colors.black),
+            style: TextStyle(
+              color: Colors.white, // 👈 LINK EN BLANCO
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],

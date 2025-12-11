@@ -5,13 +5,17 @@ import 'package:disfruta_antofagasta/features/home/presentation/state/home_provi
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/banner_error.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/banner_skeleton.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/category_pill.dart';
-import 'package:disfruta_antofagasta/features/home/presentation/widgets/home_banner_carousel.dart';
-import 'package:disfruta_antofagasta/features/home/presentation/widgets/place_card.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/place_skeleton.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/uv.dart';
+import 'package:disfruta_antofagasta/features/home/presentation/widgets/home_banner_carousel.dart';
 import 'package:disfruta_antofagasta/shared/provider/api_client_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/auth_mode_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
+import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
+import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
+import 'package:disfruta_antofagasta/shared/session_manager.dart';
+import 'package:disfruta_antofagasta/shared/session_flag.dart';
+import 'package:disfruta_antofagasta/config/router/routes.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,84 +34,108 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await ref.read(homeProvider.notifier).refresh(lang);
   }
 
+  late final PageController _placesPageController;
+  int _currentPlacePage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _placesPageController = PageController(viewportFraction: 0.92);
+    _placesPageController.addListener(() {
+      final page = _placesPageController.page;
+      if (page == null) return;
+      final newIndex = page.round();
+      if (newIndex != _currentPlacePage && mounted) {
+        setState(() => _currentPlacePage = newIndex);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _placesPageController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(homeProvider);
     final places = state.places ?? const <PlaceEntity>[];
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double heroCardWidth = screenWidth * 0.86;
+    final double heroCardHeight = 300;
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         elevation: 0,
         title: Text(
           'home.welcome'.tr(),
           style: const TextStyle(
-            color: Colors.black, // ahora negro
+            color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
         ),
         leading: Consumer(
           builder: (context, ref, _) => IconButton(
-            tooltip: 'Cerrar sesión',
-            icon: const Icon(
-              Icons.logout,
-              color: Colors.black, // negro
-              size: 22,
-            ),
+            tooltip: 'home.logout_tooltip'.tr(),
+            icon: const Icon(Icons.logout, color: Colors.white, size: 22),
             onPressed: () async {
+              SessionFlag.hasPersistedSession = false;
+              await SessionManager.clearSession();
               await ref.read(authProvider.notifier).logoutUser();
               ref.read(authModeProvider.notifier).state = AuthMode.login;
-
               if (!context.mounted) return;
-              context.pushReplacementNamed('login');
+              context.go(AppPath.login);
             },
           ),
         ),
         actions: [
-          // Selector de idioma
           Consumer(
             builder: (context, ref, _) {
               final lang = ref.watch(languageProvider);
               return Container(
+                margin: const EdgeInsets.only(right: 8),
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.sandLight, // fondo arena
+                  color: AppColors.panel,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: lang,
-                    dropdownColor: AppColors.sandLight,
-                    iconEnabledColor: Colors.black,
-                    style: const TextStyle(color: Colors.black),
+                    dropdownColor: AppColors.panel,
+                    iconEnabledColor: Colors.white,
+                    style: const TextStyle(color: Colors.white),
                     items: const [
                       DropdownMenuItem(
                         value: 'es',
                         child: Text(
                           '🇪🇸 ES',
-                          style: TextStyle(color: Colors.black),
+                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                       DropdownMenuItem(
                         value: 'en',
                         child: Text(
                           '🇬🇧 EN',
-                          style: TextStyle(color: Colors.black),
+                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                       DropdownMenuItem(
                         value: 'pt',
                         child: Text(
                           '🇧🇷 PT',
-                          style: TextStyle(color: Colors.black),
+                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                       DropdownMenuItem(
                         value: 'fr',
                         child: Text(
                           '🇫🇷 FR',
-                          style: TextStyle(color: Colors.black),
+                          style: TextStyle(color: Colors.white),
                         ),
                       ),
                     ],
@@ -123,13 +151,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
             },
           ),
-
-          // Widget de clima / UV
           if (state.weather != null)
             Row(
               children: [
                 if (state.weather!.uvMax != null) ...[
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 4),
                   Builder(
                     builder: (context) {
                       final uv = state.weather!.uvMax;
@@ -140,20 +166,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.sandLight.withValues(alpha: 0.80),
+                          color: Colors.black,
                           border: Border.all(color: level.color, width: 1),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
                               state.weather!.temperatura,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                                color: Colors.white,
                                 fontSize: 10,
                               ),
                             ),
@@ -161,13 +185,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ' V. ${state.weather!.viento}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                                color: Colors.white,
                                 fontSize: 10,
                               ),
                             ),
                             Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(level.icon, size: 16, color: level.color),
+                                const SizedBox(width: 2),
                                 Text(
                                   'UV -',
                                   style: TextStyle(
@@ -201,45 +227,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // --- Sección Banners ---
-            if (state.isLoadingBanners) const BannerSkeleton(),
-            if (!state.isLoadingBanners && state.errorMessageBanner != null)
-              BannerError(
-                message: state.errorMessageBanner!,
-                onRetry: () {
-                  ref.read(homeProvider.notifier).loadBanners();
-                },
-              ),
-
-            if (!state.isLoadingBanners &&
-                state.errorMessageBanner == null &&
-                (state.banners?.isNotEmpty ?? false))
-              HomeBannerCarousel(
-                items: state.banners!,
-                onTap: (b, i) {
-                  ref
-                      .read(analyticsProvider)
-                      .clickBanner(
-                        b.id,
-                        meta: {'screen': 'Home', 'name': b.titulo},
-                      );
-                },
-              ),
-            if (!state.isLoadingBanners &&
-                state.errorMessageBanner == null &&
-                (state.banners?.isEmpty ?? true))
-              const SizedBox.shrink(),
-
-            const SizedBox(height: 14),
+            // =========================
+            // 1) DESTACADOS
+            // =========================
             Text(
               'home.featured'.tr(),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black, // “Destacados” en negro
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 14),
-
+            const SizedBox(height: 12),
             CategoryChipsList(
               items: state.categories ?? const [],
               selectedId: state.selectedCategoryId,
@@ -256,37 +254,270 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 14),
 
             if (state.isLoadingPlaces) ...[
-              const PlaceSkeleton(),
-              const SizedBox(height: 12),
-              const PlaceSkeleton(),
-              const SizedBox(height: 12),
-              const PlaceSkeleton(),
-            ] else ...[
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: places.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) {
-                  final p = places[i];
+              SizedBox(
+                height: heroCardHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 3,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (_, __) => Container(
+                    width: heroCardWidth,
+                    decoration: BoxDecoration(
+                      color: AppColors.panel,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (places.isNotEmpty) ...[
+              SizedBox(
+                height: heroCardHeight,
+                child: PageView.builder(
+                  controller: _placesPageController,
+                  itemCount: places.length,
+                  itemBuilder: (context, index) {
+                    final p = places[index];
 
-                  return PlaceCard(
-                    key: ValueKey(p.id),
-                    place: p,
-                    onTap: () {
-                      ref
-                          .read(analyticsProvider)
-                          .clickObject(
-                            p.id,
-                            meta: {'screen': 'Home', 'name': p.titulo},
-                          );
-                      context.push('/place/${p.id}');
-                    },
-                    onFavorite: false,
-                  );
-                },
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(22),
+                        child: GestureDetector(
+                          onTap: () {
+                            ref
+                                .read(analyticsProvider)
+                                .clickObject(
+                                  p.id,
+                                  meta: {'screen': 'Home', 'name': p.titulo},
+                                );
+                            context.push('/place/${p.id}');
+                          },
+                          child: Container(
+                            width: heroCardWidth,
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                            ),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (p.imagenHigh.isNotEmpty)
+                                  Image.network(
+                                    p.imagenHigh,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        Container(color: Colors.grey.shade800),
+                                  )
+                                else
+                                  Container(color: Colors.grey.shade800),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.black.withOpacity(0.05),
+                                        Colors.black.withOpacity(0.9),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Align(
+                                    alignment: Alignment.bottomLeft,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        // ========= BOTÓN PLAY DESTACADO =========
+                                        InkWell(
+                                          onTap: () async {
+                                            if (p.audio.isEmpty) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'home.no_audio'.tr(),
+                                                  ),
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            // 1) Actualizar mini-player global
+                                            ref
+                                                .read(
+                                                  nowPlayingProvider.notifier,
+                                                )
+                                                .setFromPlace(p);
+
+                                            // 2) Reproducir o reanudar el mp3
+                                            final audio = ref.read(
+                                              audioPlayerProvider,
+                                            );
+                                            await audio.playOrResume(p.audio);
+
+                                            // 3) Analíticas
+                                            ref
+                                                .read(analyticsProvider)
+                                                .clickObject(
+                                                  p.id,
+                                                  meta: {
+                                                    'screen': 'Home',
+                                                    'name': p.titulo,
+                                                    'action': 'play_home',
+                                                  },
+                                                );
+                                          },
+                                          child: Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.play_arrow_rounded,
+                                              size: 28,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        // ========= TEXTOS PIEZA DESTACADA =========
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                p.titulo,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 18,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                p.tipo,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: Colors.white
+                                                      .withOpacity(0.8),
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                p.descCorta,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: Colors.white
+                                                      .withOpacity(0.8),
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (places.length > 1)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(places.length, (i) {
+                    final bool active = i == _currentPlacePage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: active ? 10 : 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: active
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
+                  }),
+                ),
+            ] else ...[
+              Text(
+                'home.no_featured'.tr(),
+                style: const TextStyle(color: Colors.white70),
               ),
             ],
+
+            const SizedBox(height: 28),
+
+            // =========================
+            // 2) BANNERS INFORMATIVOS
+            // =========================
+            Text(
+              'home.info_banners'.tr(),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            if (state.isLoadingBanners) const BannerSkeleton(),
+
+            if (!state.isLoadingBanners && state.errorMessageBanner != null)
+              BannerError(
+                message: 'home.banner_load_error'.tr(),
+                onRetry: _refreshDashboard,
+              ),
+
+            if (!state.isLoadingBanners &&
+                state.errorMessageBanner == null &&
+                (state.banners?.isNotEmpty ?? false))
+              HomeBannerCarousel(
+                items: state.banners!,
+                onTap: (banner, index) {
+                  ref
+                      .read(analyticsProvider)
+                      .clickBanner(
+                        banner.id,
+                        meta: {'screen': 'Home', 'name': banner.titulo},
+                      );
+                },
+              ),
+
+            if (!state.isLoadingBanners &&
+                state.errorMessageBanner == null &&
+                (state.banners?.isEmpty ?? true))
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'home.no_banners'.tr(),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ),
+
+            const SizedBox(
+              height: 100,
+            ), // espacio para que no lo tape el mini-player global
           ],
         ),
       ),

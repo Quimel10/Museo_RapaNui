@@ -75,7 +75,7 @@ class _LoginViewState extends ConsumerState<LoginForm> {
 
         const SizedBox(height: 10),
 
-        // BOTÓN PRINCIPAL (MISMO ESTILO QUE INVITADO / REGISTRO)
+        // BOTÓN PRINCIPAL
         SizedBox(
           height: 52,
           child: ElevatedButton(
@@ -92,17 +92,25 @@ class _LoginViewState extends ConsumerState<LoginForm> {
             ),
             onPressed: form.isPosting
                 ? null
-                : () => ref.read(loginFormProvider.notifier).onFormSubmit(),
+                : () {
+                    ref.read(loginFormProvider.notifier).onFormSubmit();
+                  },
             child: Text(form.isPosting ? 'Ingresando…' : 'Iniciar sesión'),
           ),
         ),
+
         const SizedBox(height: 10),
 
+        // 🔥 ENLACE "¿Olvidaste tu contraseña?" EN BLANCO
         TextButton(
           onPressed: () => ref.read(forgotModeProvider.notifier).state = true,
+          style: TextButton.styleFrom(foregroundColor: Colors.white),
           child: const Text(
             '¿Olvidaste tu contraseña?',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: Colors.white, // 👈 TEXTO BLANCO
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],

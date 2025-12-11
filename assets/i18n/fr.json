@@ -4,7 +4,13 @@
   "home": {
     "welcome": "Bienvenue !",
     "featured": "À la une",
-    "search": "Quelle pièce recherchez-vous ?"
+    "search": "Quelle pièce recherchez-vous ?",
+    "no_featured": "Il n'y a pas de pièces en vedette pour le moment.",
+    "info_banners": "Bannières informatives",
+    "no_banners": "Il n'y a pas de bannières informatives pour le moment.",
+    "banner_load_error": "Impossible de charger les bannières informatives. Réessayez plus tard.",
+    "no_audio": "Cette pièce ne possède pas de piste audio.",
+    "logout_tooltip": "Se déconnecter"
   },
 
   "tabs": {
@@ -13,7 +19,8 @@
     "pieces": "Pièces",
     "places": "Pièces",
     "map": "Carte",
-    "favorites": "Favoris"
+    "favorites": "Favoris",
+    "search": "Rechercher"
   },
 
   "pieces": {
@@ -21,7 +28,34 @@
     "search": "Quelle pièce recherchez-vous ?"
   },
 
+  "piece_detail": {
+    "description_title": "Description",
+    "references_title": "Références :",
+    "images_title": "Images de la pièce",
+    "play_audio": "Lire l'audio",
+    "pause_audio": "Mettre l'audio en pause",
+    "load_error": "Impossible de charger la pièce.",
+    "not_found": "Pièce introuvable."
+  },
+
+  "player": {
+    "play_audio": "Lire l’audio",
+    "pause_audio": "Mettre en pause",
+    "loading_audio": "Chargement de l’audio...",
+    "audio_error": "Impossible de lire l’audio."
+  },
+
   "actions": {
     "retry": "Réessayer"
+  },
+
+  "errors": {
+    "place_not_loaded": "Impossible de charger la pièce.",
+    "place_not_found": "La pièce est introuvable."
+  },
+
+  "place": {
+    "description": "Description",
+    "images_of_piece": "Images de la pièce"
   }
 }

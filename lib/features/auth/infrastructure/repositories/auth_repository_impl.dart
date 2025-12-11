@@ -23,7 +23,7 @@ class AuthRepositoryImpl extends AuthRepository {
     int? regionId,
     String? device,
     int? age,
-    int? day,
+    int? daysStay, // 👈 mismo nombre que en el abstract
   }) {
     return dataSource.guest(
       name: name,
@@ -31,7 +31,7 @@ class AuthRepositoryImpl extends AuthRepository {
       regionId: regionId,
       device: device,
       age: age,
-      day: day,
+      daysStay: daysStay, // 👈 pasa tal cual al datasource
     );
   }
 

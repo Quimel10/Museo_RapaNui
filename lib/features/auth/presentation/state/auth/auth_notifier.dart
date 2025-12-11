@@ -20,17 +20,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) : super(AuthState()) {
     checkAuthStatus();
   }
+
   // GUEST
   Future<void> guestUser(Guest guest) async {
     try {
       state = state.copyWith(errorMessage: null);
+
       final auth = await authRepository.guest(
         name: guest.name!,
         countryCode: guest.country!, // debe ser el code (CL/AR/PE)
         regionId: guest.region,
-        day: guest.day,
         age: guest.age,
+        // 👇 IMPORTANTE: usar daysStay, que es lo que espera el repo/datasource
+        daysStay: guest.day,
       );
+
       _setLoggedUser(auth!);
     } catch (e) {
       final msg = _extractAnyErrorMessage(e);
