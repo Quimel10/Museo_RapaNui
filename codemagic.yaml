@@ -8,8 +8,7 @@ workflows:
       flutter: stable
       xcode: latest
       vars:
-        # ⚠️ Cambia esto por el bundle id real de tu app (el de iOS)
-        BUNDLE_ID: "com.tuempresa.museorapanui"
+        BUNDLE_ID: "MuseoQA"
 
     scripts:
       - name: Flutter pub get
@@ -19,46 +18,78 @@ workflows:
 
       - name: Build iOS Simulator app (DEBUG)
         script: |
+          set -e
+
           # DEBUG para simulador (RELEASE no funciona en simulador)
           flutter build ios --simulator --debug
 
-          echo "Listing build output..."
-          ls -la build/ios || true
-          ls -la build/ios/iphonesimulator || true
+          echo "Searching Runner.app..."
+          APP_PATH=$(find build -type d -name "Runner.app" | head -n 1)
 
-          cd build/ios/iphonesimulator
-          zip -r Runner.app.zip Runner.app
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ Runner.app not found under build/"
+            echo "Listing build directory:"
+            ls -la build || true
+            ls -la build/ios || true
+            exit 1
+          fi
 
-      - name: Take screenshots (iPhone 6.5 + iPad)
+          echo "✅ Runner.app found at: $APP_PATH"
+
+          mkdir -p $CM_BUILD_DIR/artifacts
+          cd "$(dirname "$APP_PATH")"
+          zip -r "$CM_BUILD_DIR/artifacts/Runner.app.zip" "Runner.app"
+
+      - name: Boot simulators + install + take screenshots
         script: |
           set -e
 
           mkdir -p $CM_BUILD_DIR/screenshots
 
-          # ---------- iPhone 6.5" (ej: iPhone 11 Pro Max) ----------
+          APP_ZIP="$CM_BUILD_DIR/artifacts/Runner.app.zip"
+          TMP_DIR="$CM_BUILD_DIR/tmp_app"
+          rm -rf "$TMP_DIR"
+          mkdir -p "$TMP_DIR"
+          unzip -q "$APP_ZIP" -d "$TMP_DIR"
+
+          APP_PATH="$TMP_DIR/Runner.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "❌ Unzipped Runner.app not found"
+            ls -la "$TMP_DIR"
+            exit 1
+          fi
+
+          # --- iPhone 6.5" (Apple pide 6.5-inch) ---
           IPHONE_DEVICE="iPhone 11 Pro Max"
           IPHONE_UDID=$(xcrun simctl list devices available | grep -m 1 "$IPHONE_DEVICE" | awk -F '[()]' '{print $2}')
+
+          echo "iPhone device: $IPHONE_DEVICE"
           echo "iPhone UDID: $IPHONE_UDID"
 
           xcrun simctl boot "$IPHONE_UDID" || true
           open -a Simulator --args -CurrentDeviceUDID "$IPHONE_UDID"
-          xcrun simctl install "$IPHONE_UDID" "$CM_BUILD_DIR/build/ios/iphonesimulator/Runner.app"
+
+          xcrun simctl install "$IPHONE_UDID" "$APP_PATH"
           xcrun simctl launch "$IPHONE_UDID" "$BUNDLE_ID" || true
           sleep 8
-          xcrun simctl io "$IPHONE_UDID" screenshot "$CM_BUILD_DIR/screenshots/iphone_6_5.png"
+          xcrun simctl io "$IPHONE_UDID" screenshot "$CM_BUILD_DIR/screenshots/iphone_6_5_01.png"
 
-          # ---------- iPad grande (12.9/13") ----------
+          # --- iPad grande (para 13-inch category) ---
           IPAD_DEVICE="iPad Pro (12.9-inch) (6th generation)"
           IPAD_UDID=$(xcrun simctl list devices available | grep -m 1 "$IPAD_DEVICE" | awk -F '[()]' '{print $2}')
+
+          echo "iPad device: $IPAD_DEVICE"
           echo "iPad UDID: $IPAD_UDID"
 
           xcrun simctl boot "$IPAD_UDID" || true
           open -a Simulator --args -CurrentDeviceUDID "$IPAD_UDID"
-          xcrun simctl install "$IPAD_UDID" "$CM_BUILD_DIR/build/ios/iphonesimulator/Runner.app"
+
+          xcrun simctl install "$IPAD_UDID" "$APP_PATH"
           xcrun simctl launch "$IPAD_UDID" "$BUNDLE_ID" || true
           sleep 8
-          xcrun simctl io "$IPAD_UDID" screenshot "$CM_BUILD_DIR/screenshots/ipad_13.png"
+          xcrun simctl io "$IPAD_UDID" screenshot "$CM_BUILD_DIR/screenshots/ipad_13_01.png"
 
     artifacts:
-      - build/ios/iphonesimulator/Runner.app.zip
+      - artifacts/Runner.app.zip
       - screenshots/*.png
