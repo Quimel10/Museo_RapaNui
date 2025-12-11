@@ -1,9 +1,13 @@
 workflows:
   ios-simulator-build:
     name: iOS Simulator Build
+    max_build_duration: 60
+
     environment:
       flutter: stable
       xcode: latest
+
+    instance_type: mac_mini_m2
 
     scripts:
       - name: Get Flutter packages
@@ -17,6 +21,3 @@ workflows:
 
     artifacts:
       - build/ios/iphonesimulator/MuseoRapaNui.app.zip
-
-    instance_type: mac_mini_m2
-    timeout: 45
