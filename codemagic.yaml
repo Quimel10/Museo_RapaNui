@@ -1,23 +1,24 @@
 workflows:
   ios-simulator-build:
     name: iOS Simulator Build
-    max_build_duration: 60
-
     environment:
       flutter: stable
       xcode: latest
-
-    instance_type: mac_mini_m2
-
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
 
-      - name: Build iOS Simulator .app
+      - name: Build iOS Simulator .app (DEBUG)
         script: |
-          flutter build ios --simulator --release
+          set -e
+          flutter --version
+          flutter build ios --simulator --debug
+
+          echo "Listing build/ios/iphonesimulator:"
+          ls -la build/ios/iphonesimulator || true
+
           cd build/ios/iphonesimulator
-          zip -r MuseoRapaNui.app.zip Runner.app
+          zip -r -y MuseoRapaNui.app.zip Runner.app
 
     artifacts:
       - build/ios/iphonesimulator/MuseoRapaNui.app.zip
