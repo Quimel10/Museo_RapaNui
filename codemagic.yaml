@@ -1,24 +1,64 @@
 workflows:
   ios-simulator-build:
-    name: iOS Simulator Build
+    name: iOS Simulator Build (Screenshots)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
     environment:
       flutter: stable
       xcode: latest
-    scripts:
-      - name: Get Flutter packages
-        script: flutter pub get
+      vars:
+        # ⚠️ Cambia esto por el bundle id real de tu app (el de iOS)
+        BUNDLE_ID: "com.tuempresa.museorapanui"
 
-      - name: Build iOS Simulator .app (DEBUG)
+    scripts:
+      - name: Flutter pub get
         script: |
-          set -e
           flutter --version
+          flutter pub get
+
+      - name: Build iOS Simulator app (DEBUG)
+        script: |
+          # DEBUG para simulador (RELEASE no funciona en simulador)
           flutter build ios --simulator --debug
 
-          echo "Listing build/ios/iphonesimulator:"
+          echo "Listing build output..."
+          ls -la build/ios || true
           ls -la build/ios/iphonesimulator || true
 
           cd build/ios/iphonesimulator
-          zip -r -y MuseoRapaNui.app.zip Runner.app
+          zip -r Runner.app.zip Runner.app
+
+      - name: Take screenshots (iPhone 6.5 + iPad)
+        script: |
+          set -e
+
+          mkdir -p $CM_BUILD_DIR/screenshots
+
+          # ---------- iPhone 6.5" (ej: iPhone 11 Pro Max) ----------
+          IPHONE_DEVICE="iPhone 11 Pro Max"
+          IPHONE_UDID=$(xcrun simctl list devices available | grep -m 1 "$IPHONE_DEVICE" | awk -F '[()]' '{print $2}')
+          echo "iPhone UDID: $IPHONE_UDID"
+
+          xcrun simctl boot "$IPHONE_UDID" || true
+          open -a Simulator --args -CurrentDeviceUDID "$IPHONE_UDID"
+          xcrun simctl install "$IPHONE_UDID" "$CM_BUILD_DIR/build/ios/iphonesimulator/Runner.app"
+          xcrun simctl launch "$IPHONE_UDID" "$BUNDLE_ID" || true
+          sleep 8
+          xcrun simctl io "$IPHONE_UDID" screenshot "$CM_BUILD_DIR/screenshots/iphone_6_5.png"
+
+          # ---------- iPad grande (12.9/13") ----------
+          IPAD_DEVICE="iPad Pro (12.9-inch) (6th generation)"
+          IPAD_UDID=$(xcrun simctl list devices available | grep -m 1 "$IPAD_DEVICE" | awk -F '[()]' '{print $2}')
+          echo "iPad UDID: $IPAD_UDID"
+
+          xcrun simctl boot "$IPAD_UDID" || true
+          open -a Simulator --args -CurrentDeviceUDID "$IPAD_UDID"
+          xcrun simctl install "$IPAD_UDID" "$CM_BUILD_DIR/build/ios/iphonesimulator/Runner.app"
+          xcrun simctl launch "$IPAD_UDID" "$BUNDLE_ID" || true
+          sleep 8
+          xcrun simctl io "$IPAD_UDID" screenshot "$CM_BUILD_DIR/screenshots/ipad_13.png"
 
     artifacts:
-      - build/ios/iphonesimulator/MuseoRapaNui.app.zip
+      - build/ios/iphonesimulator/Runner.app.zip
+      - screenshots/*.png
