@@ -1,14 +1,12 @@
 workflows:
   ios-simulator-build:
-    name: iOS Simulator Build (Screenshots)
+    name: iOS Simulator Build
     max_build_duration: 60
     instance_type: mac_mini_m2
 
     environment:
       flutter: stable
       xcode: latest
-      vars:
-        BUNDLE_ID: "MuseoQA"
 
     scripts:
       - name: Flutter pub get
@@ -20,76 +18,50 @@ workflows:
         script: |
           set -e
 
-          # DEBUG para simulador (RELEASE no funciona en simulador)
-          flutter build ios --simulator --debug
+          flutter build ios --simulator --debug --no-codesign
 
-          echo "Searching Runner.app..."
-          APP_PATH=$(find build -type d -name "Runner.app" | head -n 1)
+          echo "Finding .app in build/ios/iphonesimulator ..."
+          APP_PATH=$(find build/ios/iphonesimulator -maxdepth 1 -type d -name "*.app" | head -n 1)
 
           if [ -z "$APP_PATH" ]; then
-            echo "❌ Runner.app not found under build/"
-            echo "Listing build directory:"
-            ls -la build || true
+            echo "❌ No .app found in build/ios/iphonesimulator"
+            echo "Listing build/ios:"
             ls -la build/ios || true
+            echo "Listing build/ios/iphonesimulator:"
+            ls -la build/ios/iphonesimulator || true
             exit 1
           fi
 
-          echo "✅ Runner.app found at: $APP_PATH"
+          echo "✅ Found app: $APP_PATH"
 
-          mkdir -p $CM_BUILD_DIR/artifacts
           cd "$(dirname "$APP_PATH")"
-          zip -r "$CM_BUILD_DIR/artifacts/Runner.app.zip" "Runner.app"
+          APP_NAME="$(basename "$APP_PATH")"
+          ZIP_NAME="${APP_NAME%.app}.app.zip"
 
-      - name: Boot simulators + install + take screenshots
-        script: |
-          set -e
+          rm -f "$ZIP_NAME"
+          /usr/bin/zip -r "$ZIP_NAME" "$APP_NAME"
+          echo "✅ Zipped: $(pwd)/$ZIP_NAME"
 
-          mkdir -p $CM_BUILD_DIR/screenshots
-
-          APP_ZIP="$CM_BUILD_DIR/artifacts/Runner.app.zip"
-          TMP_DIR="$CM_BUILD_DIR/tmp_app"
-          rm -rf "$TMP_DIR"
-          mkdir -p "$TMP_DIR"
-          unzip -q "$APP_ZIP" -d "$TMP_DIR"
-
-          APP_PATH="$TMP_DIR/Runner.app"
-
-          if [ ! -d "$APP_PATH" ]; then
-            echo "❌ Unzipped Runner.app not found"
-            ls -la "$TMP_DIR"
-            exit 1
-          fi
-
-          # --- iPhone 6.5" (Apple pide 6.5-inch) ---
-          IPHONE_DEVICE="iPhone 11 Pro Max"
-          IPHONE_UDID=$(xcrun simctl list devices available | grep -m 1 "$IPHONE_DEVICE" | awk -F '[()]' '{print $2}')
-
-          echo "iPhone device: $IPHONE_DEVICE"
-          echo "iPhone UDID: $IPHONE_UDID"
-
-          xcrun simctl boot "$IPHONE_UDID" || true
-          open -a Simulator --args -CurrentDeviceUDID "$IPHONE_UDID"
-
-          xcrun simctl install "$IPHONE_UDID" "$APP_PATH"
-          xcrun simctl launch "$IPHONE_UDID" "$BUNDLE_ID" || true
-          sleep 8
-          xcrun simctl io "$IPHONE_UDID" screenshot "$CM_BUILD_DIR/screenshots/iphone_6_5_01.png"
-
-          # --- iPad grande (para 13-inch category) ---
-          IPAD_DEVICE="iPad Pro (12.9-inch) (6th generation)"
-          IPAD_UDID=$(xcrun simctl list devices available | grep -m 1 "$IPAD_DEVICE" | awk -F '[()]' '{print $2}')
-
-          echo "iPad device: $IPAD_DEVICE"
-          echo "iPad UDID: $IPAD_UDID"
-
-          xcrun simctl boot "$IPAD_UDID" || true
-          open -a Simulator --args -CurrentDeviceUDID "$IPAD_UDID"
-
-          xcrun simctl install "$IPAD_UDID" "$APP_PATH"
-          xcrun simctl launch "$IPAD_UDID" "$BUNDLE_ID" || true
-          sleep 8
-          xcrun simctl io "$IPAD_UDID" screenshot "$CM_BUILD_DIR/screenshots/ipad_13_01.png"
+      # (Opcional) Si querés screenshots automáticas, descomentá este step.
+      # OJO: requiere que el build del simulador funcione bien primero.
+      #
+      # - name: Take screenshots (optional)
+      #   script: |
+      #     set -e
+      #     xcrun simctl list devices available
+      #     # Acá podés agregar tu script de screenshots si ya lo tenés armado.
 
     artifacts:
-      - artifacts/Runner.app.zip
-      - screenshots/*.png
+      - build/ios/iphonesimulator/*.zip
+      - build/ios/iphonesimulator/*.app.zip
+      - flutter_drive.log
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/*.aab
+
+    publishing:
+      email:
+        recipients:
+          - qgonzalez@unbcollections.com.ar
+        notify:
+          success: true
+          failure: true
