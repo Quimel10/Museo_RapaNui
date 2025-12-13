@@ -102,7 +102,7 @@ class PlaceDatasourceImpl extends PlaceDataSource {
       final resp = await dio.get(
         '/get_search',
         queryParameters: {
-          if (categoryId != null && categoryId != 0) 'category_id': categoryId,
+          if (categoryId != null && categoryId != 0) 'category': categoryId,
           if (search != null && search.trim().isNotEmpty)
             'search': search.trim(),
         },

@@ -36,6 +36,8 @@ Future<void> main() async {
         Locale('en'),
         Locale('pt'),
         Locale('fr'),
+        Locale('it'), // ✅ Italiano
+        Locale('ja'), // ✅ Japonés
       ],
       path: 'assets/i18n',
       fallbackLocale: const Locale('es'),

@@ -15,9 +15,18 @@ class HomeDatasourceImpl extends HomeDataSource {
   final String accessToken;
 
   HomeDatasourceImpl({required this.accessToken, Dio? dio})
-    : dio = dio ?? Dio(BaseOptions(baseUrl: Environment.apiUrl)) {
-    print('🌐 DIO baseUrl: ${Environment.apiUrl}');
-
+    : dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: Environment.apiUrl,
+              connectTimeout: const Duration(seconds: 12),
+              sendTimeout: const Duration(seconds: 12),
+              receiveTimeout: const Duration(seconds: 18),
+              responseType: ResponseType.json,
+              headers: {'Accept': 'application/json'},
+            ),
+          ) {
     // sacamos siempre Authorization
     this.dio.interceptors.add(
       InterceptorsWrapper(
@@ -41,37 +50,37 @@ class HomeDatasourceImpl extends HomeDataSource {
     );
   }
 
+  String _normLang(String lang) {
+    final v = lang.trim().toLowerCase();
+    // dejamos pasar it/ja aunque WP no los tenga: WP debe responder [] si no existen
+    const allowed = {'es', 'en', 'pt', 'fr', 'it', 'ja'};
+    return allowed.contains(v) ? v : 'es';
+  }
+
+  void _ensureListResponse(dynamic data, String endpoint) {
+    if (data is List) return;
+    throw Exception('$endpoint failed: response is not a List');
+  }
+
   // -------- BANNERS --------
   @override
   Future<List<BannerEntity>> getBanners(String lang) async {
+    final l = _normLang(lang);
     try {
-      print('🌐 GET BANNERS: ${dio.options.baseUrl}/get_banners?lang=$lang');
-
       final response = await dio.get(
         '/get_banners',
-        queryParameters: {'lang': lang},
+        queryParameters: {'lang': l},
       );
 
-      print('📡 BANNERS statusCode: ${response.statusCode}');
-      print('📡 BANNERS raw: ${response.data}');
-
-      final banners = BannerMapper.jsonToList(response.data);
-
-      for (final b in banners) {
-        print('🎯 BANNER => id:${b.id}, titulo:${b.titulo}, img:${b.img}');
-      }
-
-      return banners;
+      _ensureListResponse(response.data, 'get_banners');
+      return BannerMapper.jsonToList(response.data);
     } on DioException catch (e) {
       final serverMsg =
           (e.response?.data is Map && e.response?.data['message'] != null)
           ? e.response!.data['message'].toString()
           : e.message ?? 'Network error';
-
-      print('❌ getBanners DioException: $serverMsg');
       throw Exception('getBanners failed: $serverMsg');
-    } catch (e, st) {
-      print('❌ getBanners Exception: $e\n$st');
+    } catch (e) {
       throw Exception('getBanners failed: $e');
     }
   }
@@ -79,27 +88,22 @@ class HomeDatasourceImpl extends HomeDataSource {
   // ---- CATEGORÍAS DESTACADAS ----
   @override
   Future<List<CategoryEntity>> getFeaturedCategory(String lang) async {
+    final l = _normLang(lang);
     try {
       final response = await dio.get(
         '/get_categorias_destacadas',
-        queryParameters: {'lang': lang},
+        queryParameters: {'lang': l},
       );
 
-      print('📡 FEATURED CATEGORIES status: ${response.statusCode}');
-      print('📡 FEATURED CATEGORIES length: ${(response.data as List).length}');
-
-      final categories = CategoryMapper.jsonToList(response.data);
-      return categories;
+      _ensureListResponse(response.data, 'get_categorias_destacadas');
+      return CategoryMapper.jsonToList(response.data);
     } on DioException catch (e) {
       final serverMsg =
           (e.response?.data is Map && e.response?.data['message'] != null)
           ? e.response!.data['message'].toString()
           : e.message ?? 'Network error';
-
-      print('❌ getFeaturedCategory DioException: $serverMsg');
       throw Exception('getFeaturedCategory failed: $serverMsg');
-    } catch (e, st) {
-      print('❌ getFeaturedCategory Exception: $e\n$st');
+    } catch (e) {
       throw Exception('getFeaturedCategory failed: $e');
     }
   }
@@ -110,30 +114,22 @@ class HomeDatasourceImpl extends HomeDataSource {
     int? categoryId,
     required String lang,
   }) async {
+    final l = _normLang(lang);
     try {
       final response = await dio.get(
         '/get_new_destacados',
-        queryParameters: {
-          'lang': lang,
-          if (categoryId != null) 'cat': categoryId,
-        },
+        queryParameters: {'lang': l, if (categoryId != null) 'cat': categoryId},
       );
 
-      print('📡 FEATURED PLACES status: ${response.statusCode}');
-      print('📡 FEATURED PLACES length: ${(response.data as List).length}');
-
-      final featured = PlaceMapper.jsonToList(response.data);
-      return featured;
+      _ensureListResponse(response.data, 'get_new_destacados');
+      return PlaceMapper.jsonToList(response.data);
     } on DioException catch (e) {
       final serverMsg =
           (e.response?.data is Map && e.response?.data['message'] != null)
           ? e.response!.data['message'].toString()
           : e.message ?? 'Network error';
-
-      print('❌ getFeatured DioException: $serverMsg');
       throw Exception('getFeatured failed: $serverMsg');
-    } catch (e, st) {
-      print('❌ getFeatured Exception: $e\n$st');
+    } catch (e) {
       throw Exception('getFeatured failed: $e');
     }
   }
@@ -141,27 +137,21 @@ class HomeDatasourceImpl extends HomeDataSource {
   // ------------- CLIMA -------------
   @override
   Future<WeatherEntity> getWeather(String lang) async {
+    final l = _normLang(lang);
     try {
       final response = await dio.get(
         '/get_weather',
-        queryParameters: {'lang': lang},
+        queryParameters: {'lang': l},
       );
 
-      print('📡 WEATHER status: ${response.statusCode}');
-      print('📡 WEATHER payload: ${response.data}');
-
-      final weather = WeatherMapper.jsonToEntity(response.data);
-      return weather;
+      return WeatherMapper.jsonToEntity(response.data);
     } on DioException catch (e) {
       final serverMsg =
           (e.response?.data is Map && e.response?.data['message'] != null)
           ? e.response!.data['message'].toString()
           : e.message ?? 'Network error';
-
-      print('❌ getWeather DioException: $serverMsg');
       throw Exception('getWeather failed: $serverMsg');
-    } catch (e, st) {
-      print('❌ getWeather Exception: $e\n$st');
+    } catch (e) {
       throw Exception('getWeather failed: $e');
     }
   }

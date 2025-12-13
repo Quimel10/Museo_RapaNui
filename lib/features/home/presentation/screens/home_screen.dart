@@ -98,7 +98,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final lang = ref.watch(languageProvider);
               return Container(
                 margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.panel,
                   borderRadius: BorderRadius.circular(10),
@@ -135,6 +138,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         value: 'fr',
                         child: Text(
                           '🇫🇷 FR',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+
+                      // ✅ NUEVOS IDIOMAS
+                      DropdownMenuItem(
+                        value: 'it',
+                        child: Text(
+                          '🇮🇹 IT',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'ja',
+                        child: Text(
+                          '🇯🇵 JA',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
@@ -252,7 +271,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
             const SizedBox(height: 14),
-
             if (state.isLoadingPlaces) ...[
               SizedBox(
                 height: heroCardHeight,
@@ -329,7 +347,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.center,
                                       children: [
-                                        // ========= BOTÓN PLAY DESTACADO =========
                                         InkWell(
                                           onTap: () async {
                                             if (p.audio.isEmpty) {
@@ -345,20 +362,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                               return;
                                             }
 
-                                            // 1) Actualizar mini-player global
                                             ref
                                                 .read(
                                                   nowPlayingProvider.notifier,
                                                 )
                                                 .setFromPlace(p);
 
-                                            // 2) Reproducir o reanudar el mp3
                                             final audio = ref.read(
                                               audioPlayerProvider,
                                             );
                                             await audio.playOrResume(p.audio);
 
-                                            // 3) Analíticas
                                             ref
                                                 .read(analyticsProvider)
                                                 .clickObject(
@@ -385,7 +399,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           ),
                                         ),
                                         const SizedBox(width: 14),
-                                        // ========= TEXTOS PIEZA DESTACADA =========
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
@@ -466,7 +479,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: const TextStyle(color: Colors.white70),
               ),
             ],
-
             const SizedBox(height: 28),
 
             // =========================
@@ -480,15 +492,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SizedBox(height: 12),
-
             if (state.isLoadingBanners) const BannerSkeleton(),
-
             if (!state.isLoadingBanners && state.errorMessageBanner != null)
               BannerError(
                 message: 'home.banner_load_error'.tr(),
                 onRetry: _refreshDashboard,
               ),
-
             if (!state.isLoadingBanners &&
                 state.errorMessageBanner == null &&
                 (state.banners?.isNotEmpty ?? false))
@@ -503,7 +512,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       );
                 },
               ),
-
             if (!state.isLoadingBanners &&
                 state.errorMessageBanner == null &&
                 (state.banners?.isEmpty ?? true))
@@ -514,10 +522,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ),
-
-            const SizedBox(
-              height: 100,
-            ), // espacio para que no lo tape el mini-player global
+            const SizedBox(height: 100),
           ],
         ),
       ),

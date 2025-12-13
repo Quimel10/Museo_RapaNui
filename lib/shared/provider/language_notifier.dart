@@ -11,13 +11,28 @@ class LanguageNotifier extends StateNotifier<String> {
   LanguageNotifier() : super('es') {
     _load();
   }
+
   static const _key = 'language';
-  static const supported = {'es', 'en', 'pt', 'fr'};
+
+  // 🌍 Idiomas soportados (ACTUALIZADO)
+  static const supported = {
+    'es',
+    'en',
+    'pt',
+    'fr',
+    'it', // ✅ Italiano
+    'ja', // ✅ Japonés
+  };
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_key);
-    state = supported.contains(saved) ? saved! : 'es';
+
+    if (saved != null && supported.contains(saved)) {
+      state = saved;
+    } else {
+      state = 'es';
+    }
   }
 
   Future<void> setLanguage(
@@ -25,15 +40,20 @@ class LanguageNotifier extends StateNotifier<String> {
     WidgetRef ref,
     String lang,
   ) async {
-    if (!supported.contains(lang)) return;
+    if (!supported.contains(lang)) {
+      // 🔒 seguridad extra: nunca setear un idioma inválido
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, lang);
     state = lang;
 
-    // Cambia locale de la UI
+    // Cambiar locale de la app
     // ignore: use_build_context_synchronously
     await context.setLocale(Locale(lang));
 
-    // si tienes más (ej: banners, favoritos con traducción) agrega aquí
+    // 👉 Si en el futuro necesitás refrescar data por idioma,
+    // este es el lugar correcto para hacerlo.
   }
 }

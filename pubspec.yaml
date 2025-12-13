@@ -2,8 +2,8 @@ name: disfruta_antofagasta
 description: "Museo RapaNui - Isla de Pascua"
 publish_to: 'none'
 
-# Nueva versión para App Store (build 10)
-version: 1.0.5+1
+# Nueva versión para App Store
+version: 1.0.6+2
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
@@ -34,13 +34,13 @@ dependencies:
   animations: ^2.1.0
   audioplayers: ^6.1.0
   just_audio: ^0.9.39
-  shared_preferences: ^2.2.2   # ← única y correcta
+  shared_preferences: ^2.2.2
 
   # 👉 plugin local de QR
   qr_code_scanner:
     path: packages/qr_code_scanner
 
-  # Renderizado de HTML (para respetar formato de WordPress)
+  # Renderizado de HTML
   flutter_html: ^3.0.0
 
 dev_dependencies:
@@ -48,7 +48,6 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-  # Herramientas de build (solo dev)
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.6
 
@@ -57,50 +56,40 @@ flutter:
 
   assets:
     - .env
-    - assets/weather/1.png
-    - assets/weather/2.png
-    - assets/weather/3.png
-    - assets/weather/4.png
-    - assets/weather/5.png
-    - assets/weather/6.png
-    - assets/weather/7.png
-    - assets/weather/8.png
-    - assets/weather/9.png
+
+    # Weather
+    - assets/weather/
+
+    # Imágenes generales
     - assets/logo.png
     - assets/logo_museo.png
     - assets/icon_ios.png
     - assets/bg_portada.png
+    - assets/icons/
+
+    # PDFs
     - assets/pdf/antofagasta-mapa-turistico-mobile-small.pdf
-    - assets/i18n/es.json
-    - assets/i18n/en.json
-    - assets/i18n/pt.json
-    - assets/i18n/fr.json
-    - assets/icons/mapse_launcher.png
+
+    # 🌍 TRADUCCIONES (CLAVE)
+    - assets/i18n/
 
 # ===========================================
-# 🔥 CONFIGURACIÓN DE ICONOS (MAPSE)
+# 🔥 ICONOS
 # ===========================================
 flutter_launcher_icons:
   android: true
-  ios: false          # por ahora solo Android
+  ios: false
 
-  # Icono base (512x512) para Android
   image_path_android: "assets/icons/mapse_launcher.png"
-
-  # Adaptive icon (Android) – fondo blanco, símbolo gris
   adaptive_icon_background: "#FFFFFFFF"
   adaptive_icon_foreground: "assets/icons/mapse_launcher.png"
-
   min_sdk_android: 21
 
 # ===========================================
-# 🔥 CONFIGURACIÓN SPLASH SCREEN
+# 🔥 SPLASH SCREEN
 # ===========================================
-# Ojo: el splash de ANDROID ya lo configuramos a mano
-# con launch_background.xml y styles.xml (Android 12+).
-# Aquí solo dejamos preparado iOS.
 flutter_native_splash:
   color: "#000000"
   image: assets/icons/mapse_launcher.png
-  android: false      # no tocar Android desde el plugin
+  android: false
   ios: true
