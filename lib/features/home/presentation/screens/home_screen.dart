@@ -362,16 +362,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                               return;
                                             }
 
-                                            ref
+                                            await ref
                                                 .read(
                                                   nowPlayingProvider.notifier,
                                                 )
-                                                .setFromPlace(p);
-
-                                            final audio = ref.read(
-                                              audioPlayerProvider,
-                                            );
-                                            await audio.playOrResume(p.audio);
+                                                .playFromPlace(p);
 
                                             ref
                                                 .read(analyticsProvider)

@@ -15,32 +15,61 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
 
     state = state.copyWith(
       isLoadingPlaces: true,
-      // añade aquí otros flags de loading que uses (categorías, filtros, etc.)
       errorMessage: null,
-      // limpia colecciones si corresponde:
       places: null,
       categories: null,
-      // ...
+      // 👇 importante: reseteo consistente
+      page: 1,
+      hasMore: true,
+      isLoadingMore: false,
+      search: '',
+      selectedCategoryId: 0, // 0 = "todas"
     );
 
-    // Dispara tus cargas en paralelo o secuencial como prefieras
     await Future.wait([
-      getPlaces(),
-      loadCategories(), // si tienes categorías
-      // _loadFilters(gen),    // si manejas filtros remotos
+      getPlaces(categoryId: 0, page: 1),
+      loadCategories(),
     ], eagerError: false);
   }
 
-  // Si quieres un pull-to-refresh que respete el idioma actual:
   Future<void> refresh() => initForLang(_currentLang);
 
+  /// ✅ Toggle de categoría (mismo comportamiento que Home)
+  Future<void> selectCategory(int? categoryId) async {
+    // normalizamos null a 0
+    final incoming = categoryId ?? 0;
+
+    // toggle: si tocas la misma => vuelve a 0
+    final nextCatId = (state.selectedCategoryId == incoming) ? 0 : incoming;
+
+    state = state.copyWith(
+      selectedCategoryId: nextCatId,
+      page: 1,
+      errorMessage: null,
+    );
+
+    final text = (state.search ?? '').trim();
+
+    // si hay búsqueda activa, refrescamos búsqueda con el nuevo filtro
+    if (text.isNotEmpty) {
+      await getSearch(categoryId: nextCatId, search: text);
+      return;
+    }
+
+    // si no hay búsqueda, refrescamos listado normal
+    await getPlaces(categoryId: nextCatId, page: 1);
+  }
+
   Future<void> getPlaces({int? categoryId, int page = 1}) async {
+    // 👇 regla: si no viene categoryId, usamos el estado
     final catId = categoryId ?? state.selectedCategoryId;
+
     state = state.copyWith(
       selectedCategoryId: catId,
       errorMessage: null,
       isLoadingPlaces: page == 1,
-      isLoadingMore: true,
+      isLoadingMore: page > 1,
+      page: page,
       places: page == 1 ? <PlaceEntity>[] : state.places,
     );
 
@@ -52,9 +81,8 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
       state = state.copyWith(
         isLoadingPlaces: false,
         isLoadingMore: false,
-        page: page,
-        hasMore: results.isNotEmpty, // [] => no hay más
-        places: page == 1 ? results : [...state.places!, ...results],
+        hasMore: results.isNotEmpty,
+        places: page == 1 ? results : [...(state.places ?? []), ...results],
       );
     } catch (e) {
       state = state.copyWith(
@@ -66,24 +94,29 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
   }
 
   Future<void> getSearch({int? categoryId, required String search}) async {
-    if (categoryId == state.selectedCategoryId) {
-      categoryId = 0;
-    }
+    // ❌ saco tu lógica rara de "si es igual => 0" de acá.
+    // Eso es toggle y se maneja en selectCategory().
+
     final catId = categoryId ?? state.selectedCategoryId;
     final text = search.trim();
+
     if (text.isEmpty) {
-      // si limpian el texto, volvemos al listado normal
+      // si limpian el texto, volvemos al listado normal con el filtro actual
+      state = state.copyWith(search: '');
       await getPlaces(categoryId: catId, page: 1);
       return;
     }
+
     if (!mounted) return;
+
     state = state.copyWith(
       selectedCategoryId: catId,
       search: text,
       errorMessage: null,
       isLoadingPlaces: true,
-      isLoadingMore: true,
+      isLoadingMore: false,
       page: 1,
+      hasMore: false,
       places: <PlaceEntity>[],
     );
 
@@ -91,6 +124,7 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
       final results =
           await repository.getSearch(categoryId: catId, search: text) ??
           <PlaceEntity>[];
+
       state = state.copyWith(
         isLoadingPlaces: false,
         places: results,
@@ -126,6 +160,7 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
       isLoadingPlaceDetails: true,
       errorMessage: null,
     );
+
     try {
       final place = await repository.getPlace(id: id);
       state = state.copyWith(isLoadingPlaceDetails: false, placeDetails: place);

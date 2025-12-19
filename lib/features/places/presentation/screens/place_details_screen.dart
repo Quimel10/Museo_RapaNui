@@ -201,7 +201,13 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       // Audio
                       if (audioUrl != null) ...[
                         const SizedBox(height: 24),
-                        AudioPlayerWidget(audioUrl: audioUrl, title: titulo),
+                        AudioPlayerWidget(
+                          audioUrl: audioUrl,
+                          title: titulo,
+                          subtitle: tipo,
+                          imageUrl: heroImage,
+                          descriptionHtml: descHtml,
+                        ),
                       ],
 
                       const SizedBox(height: 28),

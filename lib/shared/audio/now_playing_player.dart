@@ -1,6 +1,10 @@
+// lib/shared/audio/now_playing_player.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+
+// ✅ Solo este import (NO style.dart, porque tu flutter_html no lo trae)
+import 'package:flutter_html/flutter_html.dart';
 
 import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
@@ -22,7 +26,13 @@ class NowPlayingMiniBar extends ConsumerWidget {
     final PlaceEntity? place = nowPlaying.place;
     final audio = ref.watch(audioPlayerProvider);
 
+    // ✅ Cover: primero PlaceEntity (Home), si no existe usa nowPlaying.imageUrl (Piezas)
+    final String cover = (place != null && place.imagenHigh.isNotEmpty)
+        ? place.imagenHigh
+        : (nowPlaying.imageUrl ?? '');
+
     return SafeArea(
+      // margen para no pisar el bottom nav / gestos
       minimum: const EdgeInsets.only(bottom: 56),
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -48,9 +58,9 @@ class NowPlayingMiniBar extends ConsumerWidget {
                   child: SizedBox(
                     width: 36,
                     height: 36,
-                    child: place != null && place.imagenHigh.isNotEmpty
+                    child: cover.isNotEmpty
                         ? Image.network(
-                            place.imagenHigh,
+                            cover,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _miniPlaceholder(),
                           )
@@ -59,7 +69,7 @@ class NowPlayingMiniBar extends ConsumerWidget {
                 ),
                 const SizedBox(width: 10),
 
-                // Título SIN SUBRAYADO
+                // Título SIN subrayado
                 Expanded(
                   child: Text(
                     nowPlaying.title,
@@ -76,7 +86,7 @@ class NowPlayingMiniBar extends ConsumerWidget {
 
                 const SizedBox(width: 8),
 
-                // Botón play/pausa
+                // Botón play/pausa usando provider
                 StreamBuilder<PlayerState>(
                   stream: audio.playerStateStream,
                   builder: (context, snapshot) {
@@ -90,22 +100,23 @@ class NowPlayingMiniBar extends ConsumerWidget {
                         color: Colors.white,
                       ),
                       onPressed: () async {
-                        final url = nowPlaying.url;
-                        if (url == null || url.isEmpty) return;
-
+                        final notifier = ref.read(nowPlayingProvider.notifier);
                         if (isPlaying) {
-                          await audio.pause();
-                          ref
-                              .read(nowPlayingProvider.notifier)
-                              .setIsPlaying(false);
+                          await notifier.pause();
                         } else {
-                          await audio.playOrResume(url);
-                          ref
-                              .read(nowPlayingProvider.notifier)
-                              .setIsPlaying(true);
+                          await notifier.resume();
                         }
                       },
                     );
+                  },
+                ),
+
+                // ❌ Botón cerrar (X)
+                IconButton(
+                  iconSize: 22,
+                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                  onPressed: () async {
+                    await ref.read(nowPlayingProvider.notifier).clear();
                   },
                 ),
               ],
@@ -127,7 +138,7 @@ class NowPlayingMiniBar extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent, // para que se vea la animación
+      backgroundColor: Colors.transparent,
       barrierColor: Colors.black54,
       builder: (_) {
         // ✨ Animación fade + slide up
@@ -150,8 +161,7 @@ class NowPlayingMiniBar extends ConsumerWidget {
   }
 }
 
-/// FULL SCREEN PLAYER – como en la app modelo,
-/// con animación y botón X para cerrar
+/// FULL SCREEN PLAYER – con animación y botón X para cerrar
 class NowPlayingFullPlayerSheet extends ConsumerWidget {
   const NowPlayingFullPlayerSheet({super.key});
 
@@ -167,7 +177,20 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
     final audio = ref.watch(audioPlayerProvider);
     final duration = audio.duration ?? const Duration(seconds: 0);
 
+    // ✅ Cover: primero PlaceEntity, si no existe usa nowPlaying.imageUrl
+    final String cover = (place != null && place.imagenHigh.isNotEmpty)
+        ? place.imagenHigh
+        : (nowPlaying.imageUrl ?? '');
+
+    // ✅ Descripción HTML (si viene)
+    final String descHtml = (nowPlaying.descriptionHtml ?? '').trim();
+
+    // ✅ Esto es lo que arregla tu problema: padding real de status bar + margen extra
+    final double topInset = MediaQuery.of(context).padding.top;
+
     return SafeArea(
+      // 👇 IMPORTANTÍSIMO: no uses el top de SafeArea, lo controlamos nosotros
+      top: false,
       child: Container(
         decoration: const BoxDecoration(
           color: Colors.black,
@@ -176,12 +199,17 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Barra de arrastre + botón X
+            // Barra de arrastre + botón X (más abajo, sin chocar con la hora)
             Padding(
-              padding: const EdgeInsets.only(top: 8, left: 8, right: 8),
+              padding: EdgeInsets.only(
+                top: topInset + 34, // ✅ baja la X y el header
+                left: 8,
+                right: 8,
+                bottom: 6,
+              ),
               child: Row(
                 children: [
-                  const SizedBox(width: 40), // espacio izq para que centre bien
+                  const SizedBox(width: 40),
                   Expanded(
                     child: Center(
                       child: Container(
@@ -199,7 +227,7 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                       Icons.close_rounded,
                       color: Colors.white70,
                     ),
-                    onPressed: () => Navigator.of(context).pop(), // ❌ cerrar
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
@@ -220,9 +248,9 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(20),
                         child: AspectRatio(
                           aspectRatio: 1,
-                          child: place != null && place.imagenHigh.isNotEmpty
+                          child: cover.isNotEmpty
                               ? Image.network(
-                                  place.imagenHigh,
+                                  cover,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) =>
                                       _fullPlaceholder(),
@@ -233,7 +261,6 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // Título grande sin subrayado
                     Text(
                       nowPlaying.title,
                       style: const TextStyle(
@@ -245,7 +272,6 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
 
-                    // Descripción corta sin subrayado
                     if (nowPlaying.subtitle.isNotEmpty)
                       Text(
                         nowPlaying.subtitle,
@@ -332,17 +358,6 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                           IconButton(
                             iconSize: 30,
                             icon: const Icon(
-                              Icons.skip_previous_rounded,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
-                              // aquí podrías luego ir a la pieza anterior
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          IconButton(
-                            iconSize: 30,
-                            icon: const Icon(
                               Icons.replay_10_rounded,
                               color: Colors.white,
                             ),
@@ -356,11 +371,14 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                             },
                           ),
                           const SizedBox(width: 8),
+
                           StreamBuilder<PlayerState>(
                             stream: audio.playerStateStream,
                             builder: (context, snapshot) {
                               final isPlaying = audio.isPlaying;
-                              final url = nowPlaying.url ?? '';
+                              final notifier = ref.read(
+                                nowPlayingProvider.notifier,
+                              );
 
                               return Container(
                                 width: 64,
@@ -378,23 +396,17 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                                     color: Colors.black,
                                   ),
                                   onPressed: () async {
-                                    if (url.isEmpty) return;
                                     if (isPlaying) {
-                                      await audio.pause();
-                                      ref
-                                          .read(nowPlayingProvider.notifier)
-                                          .setIsPlaying(false);
+                                      await notifier.pause();
                                     } else {
-                                      await audio.playOrResume(url);
-                                      ref
-                                          .read(nowPlayingProvider.notifier)
-                                          .setIsPlaying(true);
+                                      await notifier.resume();
                                     }
                                   },
                                 ),
                               );
                             },
                           ),
+
                           const SizedBox(width: 8),
                           IconButton(
                             iconSize: 30,
@@ -407,26 +419,51 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                               final d = audio.duration ?? Duration.zero;
                               final target =
                                   current + const Duration(seconds: 10);
-                              final clamped = target > d && d > Duration.zero
+                              final clamped = (d > Duration.zero && target > d)
                                   ? d
                                   : target;
                               audio.seek(clamped);
                             },
                           ),
-                          const SizedBox(width: 4),
-                          IconButton(
-                            iconSize: 30,
-                            icon: const Icon(
-                              Icons.skip_next_rounded,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
-                              // aquí podrías luego ir a la siguiente pieza
-                            },
-                          ),
                         ],
                       ),
                     ),
+
+                    const SizedBox(height: 18),
+
+                    // Botón cerrar reproducción (stop + limpiar estado)
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () async {
+                          await ref.read(nowPlayingProvider.notifier).clear();
+                          if (context.mounted) Navigator.of(context).pop();
+                        },
+                        icon: const Icon(
+                          Icons.stop_rounded,
+                          color: Colors.white70,
+                        ),
+                        label: const Text(
+                          'Detener audio',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                    ),
+
+                    // ✅ Descripción completa (si vino desde Piezas)
+                    if (descHtml.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Descripción',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Html(data: descHtml),
+                    ],
 
                     const SizedBox(height: 24),
                   ],

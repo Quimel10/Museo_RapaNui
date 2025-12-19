@@ -32,10 +32,10 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
   void initState() {
     super.initState();
 
-    // Carga inicial: categorías + primera página
     Future.microtask(() async {
-      await ref.read(placeProvider.notifier).loadCategories();
-      await ref.read(placeProvider.notifier).getPlaces(page: 1);
+      await ref
+          .read(placeProvider.notifier)
+          .initForLang(context.locale.languageCode);
     });
 
     _scroll.addListener(_onScroll);
@@ -53,7 +53,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
   void _onScroll() {
     final s = ref.read(placeProvider);
 
-    // Si estoy en modo búsqueda, no hago paginación infinita
     if ((s.search?.isNotEmpty ?? false)) return;
 
     final pos = _scroll.position;
@@ -72,8 +71,8 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
   }
 
   Future<void> _onRefresh() async {
-    await ref.read(placeProvider.notifier).refresh();
     _searchCtrl.clear();
+    await ref.read(placeProvider.notifier).refresh();
   }
 
   void _onSearchChanged(String v) {
@@ -83,12 +82,10 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
       final s = ref.read(placeProvider);
 
       if (text.isEmpty) {
-        // Sin texto => modo “lista completa”
         ref
             .read(placeProvider.notifier)
             .getPlaces(categoryId: s.selectedCategoryId, page: 1);
       } else {
-        // Con texto => búsqueda (sin paginación)
         ref
             .read(placeProvider.notifier)
             .getSearch(categoryId: s.selectedCategoryId, search: text);
@@ -100,6 +97,7 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(placeProvider);
     final items = state.places ?? const <PlaceEntity>[];
+
     final bool isSearching =
         _searchCtrl.text.trim().isNotEmpty ||
         (state.search?.isNotEmpty ?? false);
@@ -122,16 +120,12 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
         onRefresh: _onRefresh,
         child: ListView(
           controller: _scroll,
-
-          // 👇🏼 CAMBIO IMPORTANTE: más espacio abajo por el mini-player
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-
           children: [
             // BUSCADOR
             TextField(
               controller: _searchCtrl,
               focusNode: _searchFocus,
-              autofocus: false,
               onChanged: _onSearchChanged,
               style: const TextStyle(color: Colors.black),
               decoration: InputDecoration(
@@ -151,7 +145,7 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
             ),
             const SizedBox(height: 12),
 
-            // CATEGORÍAS
+            // CATEGORÍAS (toggle real)
             if (state.categories != null) ...[
               CategoryChipsList(
                 items: state.categories!,
@@ -164,16 +158,7 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                         meta: {'screen': 'Piezas', 'name': cat.name},
                       );
 
-                  final currentSearch = _searchCtrl.text.trim();
-                  if (currentSearch.isEmpty) {
-                    ref
-                        .read(placeProvider.notifier)
-                        .getPlaces(categoryId: cat.id, page: 1);
-                  } else {
-                    ref
-                        .read(placeProvider.notifier)
-                        .getSearch(categoryId: cat.id, search: currentSearch);
-                  }
+                  ref.read(placeProvider.notifier).selectCategory(cat.id);
                 },
                 padding: EdgeInsets.zero,
               ),
@@ -213,7 +198,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (_, i) {
                   final p = items[i];
-
                   return PlaceCard(
                     key: ValueKey(p.id),
                     place: p,
@@ -231,22 +215,10 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                 },
               ),
 
-              // paginación
+              // paginación (solo skeleton cuando carga más)
               if (!isSearching && state.isLoadingMore == true) ...[
                 const SizedBox(height: 12),
                 const PlaceSkeleton(),
-              ] else if (!isSearching &&
-                  state.hasMore == false &&
-                  (state.search?.isEmpty ?? true)) ...[
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    'Cargando todos los resultados',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.neutral700,
-                    ),
-                  ),
-                ),
               ],
             ],
           ],

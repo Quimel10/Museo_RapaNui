@@ -1,80 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
 
-class AudioPlayerWidget extends StatefulWidget {
+import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
+import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
+import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
+
+class AudioPlayerWidget extends ConsumerWidget {
   final String audioUrl;
   final String title;
+
+  /// Opcional: si tenés la pieza completa, mejor (para que el mini-player tenga imagen, id, etc.)
+  final PlaceEntity? place;
+
+  /// Opcional: subtítulo
+  final String subtitle;
+
+  /// ✅ NUEVO: portada y descripción (cuando NO tenemos PlaceEntity)
+  final String? imageUrl;
+  final String? descriptionHtml;
 
   const AudioPlayerWidget({
     super.key,
     required this.audioUrl,
     required this.title,
+    this.place,
+    this.subtitle = '',
+    this.imageUrl,
+    this.descriptionHtml,
   });
-
-  @override
-  State<AudioPlayerWidget> createState() => _AudioPlayerWidgetState();
-}
-
-class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
-  late final AudioPlayer _player;
-  Duration _duration = Duration.zero;
-  Duration _position = Duration.zero;
-  bool _isLoading = true;
-  bool _hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _player = AudioPlayer();
-    _init();
-    _listenStreams();
-  }
-
-  Future<void> _init() async {
-    try {
-      await _player.setUrl(widget.audioUrl);
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _hasError = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-      });
-    }
-  }
-
-  void _listenStreams() {
-    _player.durationStream.listen((d) {
-      if (!mounted) return;
-      setState(() => _duration = d ?? Duration.zero);
-    });
-
-    _player.positionStream.listen((p) {
-      if (!mounted) return;
-      setState(() => _position = p);
-    });
-  }
-
-  @override
-  void dispose() {
-    _player.dispose();
-    super.dispose();
-  }
-
-  Future<void> _togglePlay() async {
-    if (_player.playing) {
-      await _player.pause();
-    } else {
-      await _player.play();
-    }
-    if (!mounted) return;
-    setState(() {}); // fuerza refresco del texto Play/Pause + icono
-  }
 
   String _format(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -83,33 +37,45 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isPlaying = _player.playing;
-    final totalMs = _duration.inMilliseconds.clamp(1, 24 * 60 * 60 * 1000);
-    final posMs = _position.inMilliseconds.clamp(0, totalMs);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nowPlaying = ref.watch(nowPlayingProvider);
+    final audio = ref.watch(audioPlayerProvider);
 
-    if (_hasError) {
+    final url = audioUrl.trim();
+
+    if (url.isEmpty) {
       return Text(
-        tr('player.audio_error'), // ✅ traducible
+        tr('player.audio_error'),
         style: const TextStyle(color: Colors.white70, fontSize: 14),
       );
     }
 
-    if (_isLoading) {
-      return Row(
-        children: [
-          const SizedBox(
-            width: 32,
-            height: 32,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            tr('player.loading_audio'), // ✅ traducible
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-        ],
-      );
+    final bool isThisTrackActive = (nowPlaying.url ?? '') == url;
+    final bool isPlayingThis = isThisTrackActive && audio.isPlaying;
+
+    Future<void> onToggle() async {
+      final notifier = ref.read(nowPlayingProvider.notifier);
+
+      if (!isThisTrackActive) {
+        await notifier.playFromUrl(
+          url: url,
+          title: title,
+          subtitle: subtitle.isNotEmpty ? subtitle : (place?.descCorta ?? ''),
+          placeId: place?.id,
+          place: place,
+
+          // ✅ NUEVO
+          imageUrl: imageUrl,
+          descriptionHtml: descriptionHtml,
+        );
+        return;
+      }
+
+      if (audio.isPlaying) {
+        await notifier.pause();
+      } else {
+        await notifier.resume();
+      }
     }
 
     return Column(
@@ -117,7 +83,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
       children: [
         InkWell(
           borderRadius: BorderRadius.circular(32),
-          onTap: _togglePlay,
+          onTap: onToggle,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -129,18 +95,16 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                   border: Border.all(color: Colors.white, width: 2),
                 ),
                 child: Icon(
-                  isPlaying ? Icons.pause : Icons.play_arrow,
+                  isPlayingThis ? Icons.pause : Icons.play_arrow,
                   color: Colors.white,
                   size: 28,
                 ),
               ),
               const SizedBox(width: 12),
               Text(
-                isPlaying
+                isPlayingThis
                     ? tr('player.pause_audio')
-                    : tr(
-                        'player.play_audio',
-                      ), // ✅ traducible + cambia con idioma
+                    : tr('player.play_audio'),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -150,39 +114,85 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
             ],
           ),
         ),
-
         const SizedBox(height: 8),
 
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 3,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-          ),
-          child: Slider(
-            min: 0,
-            max: totalMs.toDouble(),
-            value: posMs.toDouble(),
-            onChanged: (v) {
-              final newPos = Duration(milliseconds: v.toInt());
-              _player.seek(newPos);
-            },
-            activeColor: Colors.white,
-            inactiveColor: Colors.white24,
-          ),
-        ),
+        StreamBuilder<Duration>(
+          stream: audio.positionStream,
+          initialData: audio.position,
+          builder: (context, snapPos) {
+            final pos = (isThisTrackActive)
+                ? (snapPos.data ?? Duration.zero)
+                : Duration.zero;
+            final dur = (isThisTrackActive
+                ? (audio.duration ?? Duration.zero)
+                : Duration.zero);
 
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _format(_position),
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-            Text(
-              _format(_duration),
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-          ],
+            final totalMs = dur.inMilliseconds.clamp(1, 24 * 60 * 60 * 1000);
+            final posMs = pos.inMilliseconds.clamp(0, totalMs);
+
+            return Column(
+              children: [
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 6,
+                    ),
+                  ),
+                  child: Slider(
+                    min: 0,
+                    max: totalMs.toDouble(),
+                    value: posMs.toDouble(),
+                    onChanged: (v) {
+                      final newPos = Duration(milliseconds: v.toInt());
+
+                      if (!isThisTrackActive) {
+                        ref
+                            .read(nowPlayingProvider.notifier)
+                            .playFromUrl(
+                              url: url,
+                              title: title,
+                              subtitle: subtitle.isNotEmpty
+                                  ? subtitle
+                                  : (place?.descCorta ?? ''),
+                              placeId: place?.id,
+                              place: place,
+
+                              // ✅ NUEVO
+                              imageUrl: imageUrl,
+                              descriptionHtml: descriptionHtml,
+                            )
+                            .then((_) => audio.seek(newPos));
+                      } else {
+                        audio.seek(newPos);
+                      }
+                    },
+                    activeColor: Colors.white,
+                    inactiveColor: Colors.white24,
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _format(pos),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    Text(
+                      _format(dur),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
