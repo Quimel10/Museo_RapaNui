@@ -3,7 +3,7 @@ description: "Museo RapaNui - Isla de Pascua"
 publish_to: 'none'
 
 # Nueva versión para App Store
-version: 1.0.6+2
+version: 1.0.7+3
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
