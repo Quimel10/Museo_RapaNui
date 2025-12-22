@@ -1,18 +1,18 @@
 {
-  "app": { "name": "RapaNui Museum" },
-
+  "app": {
+    "name": "Museo RapaNui"
+  },
   "home": {
     "welcome": "Welcome!",
     "featured": "Featured",
-    "search": "What piece are you looking for?",
+    "search": "Which piece are you looking for?",
     "no_featured": "There are no featured pieces for now.",
-    "info_banners": "Informative banners",
-    "no_banners": "There are no informative banners for now.",
-    "banner_load_error": "We couldn't load the informative banners. Please try again later.",
+    "info_banners": "Information banners",
+    "no_banners": "There are no information banners for now.",
+    "banner_load_error": "We couldn't load the information banners. Please try again later.",
     "no_audio": "This piece has no audio available.",
     "logout_tooltip": "Log out"
   },
-
   "tabs": {
     "home": "Home",
     "scan": "Scan QR",
@@ -22,40 +22,38 @@
     "favorites": "Favorites",
     "search": "Search"
   },
-
   "pieces": {
     "title": "Pieces",
-    "search": "What piece are you looking for?"
+    "search": "Which piece to search?"
   },
-
   "piece_detail": {
     "description_title": "Description",
     "references_title": "References:",
-    "images_title": "Images of the piece",
+    "images_title": "Piece images",
     "play_audio": "Play audio",
     "pause_audio": "Pause audio",
-    "load_error": "The piece could not be loaded.",
+    "play_audio_button": "Play audio",
+    "playing_now": "Now playing",
+    "paused": "Paused",
+    "tap_to_play": "Tap to play",
+    "load_error": "Could not load the piece.",
     "not_found": "Piece not found."
   },
-
   "player": {
     "play_audio": "Play audio",
     "pause_audio": "Pause audio",
     "loading_audio": "Loading audio...",
-    "audio_error": "Couldn't play the audio."
+    "audio_error": "Audio could not be played."
   },
-
   "actions": {
     "retry": "Retry"
   },
-
   "errors": {
-    "place_not_loaded": "The piece could not be loaded.",
+    "place_not_loaded": "Could not load the piece.",
     "place_not_found": "The piece was not found."
   },
-
   "place": {
     "description": "Description",
-    "images_of_piece": "Images of the piece"
+    "images_of_piece": "Piece images"
   }
 }

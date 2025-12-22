@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio/just_audio.dart';
+
 import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
 
@@ -7,13 +10,13 @@ class NowPlayingState {
   final String title;
   final String subtitle;
   final int? placeId;
+
+  /// ✅ La UI NO debe depender de esto para saber si suena,
+  /// pero lo mantenemos para textos/consistencia.
   final bool isPlaying;
 
-  /// ✅ NUEVO: portada y descripción para cuando NO tenemos PlaceEntity
   final String? imageUrl;
   final String? descriptionHtml;
-
-  /// Si existe, seguimos guardando PlaceEntity (flujo Home)
   final PlaceEntity? place;
 
   const NowPlayingState({
@@ -27,7 +30,7 @@ class NowPlayingState {
     this.place,
   });
 
-  bool get hasAudio => url != null && url!.isNotEmpty;
+  bool get hasAudio => url != null && url!.trim().isNotEmpty;
 
   NowPlayingState copyWith({
     String? url,
@@ -53,89 +56,113 @@ class NowPlayingState {
 }
 
 class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
-  NowPlayingNotifier(this._audio) : super(const NowPlayingState());
+  NowPlayingNotifier(this._audio) : super(const NowPlayingState()) {
+    _bindAudio();
+  }
 
   final AudioPlayerService _audio;
 
-  /// 🎧 MÉTODO CENTRAL
-  /// Reproduce una pieza y REEMPLAZA cualquier audio anterior
+  StreamSubscription<bool>? _playingSub;
+  StreamSubscription<PlayerState>? _playerStateSub;
+
+  void _bindAudio() {
+    // ✅ Sync: si el audio cambia, actualizamos el state
+    _playingSub = _audio.playingStream.listen((playing) {
+      if (!state.hasAudio) return;
+      if (state.isPlaying != playing) {
+        state = state.copyWith(isPlaying: playing);
+      }
+    });
+
+    // ✅ Sync: si terminó (completed) -> isPlaying false
+    _playerStateSub = _audio.playerStateStream.listen((ps) {
+      if (!state.hasAudio) return;
+      if (ps.processingState == ProcessingState.completed) {
+        if (state.isPlaying != false) {
+          state = state.copyWith(isPlaying: false);
+        }
+      }
+    });
+  }
+
+  /// 🎧 Home
   Future<void> playFromPlace(PlaceEntity place) async {
-    if (place.audio.isEmpty) return;
+    if (place.audio.trim().isEmpty) return;
 
-    await _audio.stop();
-
-    // 👇 si tenemos PlaceEntity, también guardamos cover fallback por las dudas
-    final cover = place.imagenHigh.isNotEmpty ? place.imagenHigh : '';
+    final cover = place.imagenHigh.trim().isNotEmpty
+        ? place.imagenHigh.trim()
+        : null;
 
     state = NowPlayingState(
-      url: place.audio,
+      url: place.audio.trim(),
       title: place.titulo,
       subtitle: place.descCorta,
       placeId: place.id,
       place: place,
       isPlaying: true,
-      imageUrl: cover.isNotEmpty ? cover : null,
-      descriptionHtml:
-          null, // si tu PlaceEntity tuviera html largo, acá lo setearías
+      imageUrl: cover,
+      descriptionHtml: null,
     );
 
-    await _audio.playOrResume(place.audio);
+    await _audio.playOrResume(place.audio.trim());
   }
 
-  /// 🎧 Reproduce por URL (detalle u otros contextos)
+  /// 🎧 Details / otros contextos
   Future<void> playFromUrl({
     required String url,
     required String title,
     String subtitle = '',
     int? placeId,
     PlaceEntity? place,
-
-    /// ✅ NUEVO
     String? imageUrl,
     String? descriptionHtml,
   }) async {
-    if (url.trim().isEmpty) return;
+    final clean = url.trim();
+    if (clean.isEmpty) return;
 
-    await _audio.stop();
-
-    // Si viene place, priorizamos su imagenHigh
-    final coverFromPlace = (place != null && place.imagenHigh.isNotEmpty)
-        ? place.imagenHigh
+    final coverFromPlace = (place != null && place.imagenHigh.trim().isNotEmpty)
+        ? place.imagenHigh.trim()
         : null;
 
+    final coverFinal =
+        coverFromPlace ??
+        (imageUrl?.trim().isNotEmpty == true ? imageUrl!.trim() : null);
+
     state = NowPlayingState(
-      url: url,
+      url: clean,
       title: title,
       subtitle: subtitle,
       placeId: placeId,
       place: place,
       isPlaying: true,
-      imageUrl:
-          coverFromPlace ??
-          (imageUrl?.trim().isNotEmpty == true ? imageUrl!.trim() : null),
+      imageUrl: coverFinal,
       descriptionHtml: (descriptionHtml?.trim().isNotEmpty == true)
           ? descriptionHtml!.trim()
           : null,
     );
 
-    await _audio.playOrResume(url);
+    await _audio.playOrResume(clean);
   }
 
   Future<void> pause() async {
     await _audio.pause();
-    state = state.copyWith(isPlaying: false);
+    if (state.isPlaying != false) {
+      state = state.copyWith(isPlaying: false);
+    }
   }
 
   Future<void> resume() async {
-    final url = state.url;
+    final url = state.url?.trim();
     if (url == null || url.isEmpty) return;
 
     await _audio.playOrResume(url);
-    state = state.copyWith(isPlaying: true);
+    if (state.isPlaying != true) {
+      state = state.copyWith(isPlaying: true);
+    }
   }
 
   Future<void> toggle() async {
-    if (state.isPlaying) {
+    if (_audio.isPlaying) {
       await pause();
     } else {
       await resume();
@@ -145,6 +172,16 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
   Future<void> clear() async {
     await _audio.stop();
     state = const NowPlayingState();
+  }
+
+  /// ✅ COMPAT: si algún archivo llama stop(), que no rompa
+  Future<void> stop() async => clear();
+
+  @override
+  void dispose() {
+    _playingSub?.cancel();
+    _playerStateSub?.cancel();
+    super.dispose();
   }
 }
 

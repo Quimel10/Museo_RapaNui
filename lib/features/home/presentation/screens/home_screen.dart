@@ -5,14 +5,12 @@ import 'package:disfruta_antofagasta/features/home/presentation/state/home_provi
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/banner_error.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/banner_skeleton.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/category_pill.dart';
-import 'package:disfruta_antofagasta/features/home/presentation/widgets/place_skeleton.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/uv.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/home_banner_carousel.dart';
 import 'package:disfruta_antofagasta/shared/provider/api_client_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/auth_mode_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
 import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
-import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
 import 'package:disfruta_antofagasta/shared/session_manager.dart';
 import 'package:disfruta_antofagasta/shared/session_flag.dart';
 import 'package:disfruta_antofagasta/config/router/routes.dart';
@@ -141,8 +139,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
-
-                      // ✅ NUEVOS IDIOMAS
                       DropdownMenuItem(
                         value: 'it',
                         child: Text(
@@ -246,9 +242,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // =========================
-            // 1) DESTACADOS
-            // =========================
             Text(
               'home.featured'.tr(),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -257,20 +250,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SizedBox(height: 12),
+
+            // ✅ CATEGORÍAS: SOLO TRACK AL SELECCIONAR
             CategoryChipsList(
               items: state.categories ?? const [],
               selectedId: state.selectedCategoryId,
-              onChanged: (cat) {
+              onChanged: (cat, isSelected) {
+                if (isSelected) {
+                  ref
+                      .read(analyticsProvider)
+                      .clickCategory(
+                        cat.id,
+                        meta: {'screen': 'Home', 'name': cat.name},
+                      );
+                }
                 ref.read(homeProvider.notifier).selectCategory(cat.id);
-                ref
-                    .read(analyticsProvider)
-                    .clickCategory(
-                      cat.id,
-                      meta: {'screen': 'Home', 'name': cat.name},
-                    );
               },
             ),
+
             const SizedBox(height: 14),
+
             if (state.isLoadingPlaces) ...[
               SizedBox(
                 height: heroCardHeight,
@@ -474,11 +473,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: const TextStyle(color: Colors.white70),
               ),
             ],
+
             const SizedBox(height: 28),
 
-            // =========================
-            // 2) BANNERS INFORMATIVOS
-            // =========================
             Text(
               'home.info_banners'.tr(),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -487,12 +484,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SizedBox(height: 12),
+
             if (state.isLoadingBanners) const BannerSkeleton(),
+
             if (!state.isLoadingBanners && state.errorMessageBanner != null)
               BannerError(
                 message: 'home.banner_load_error'.tr(),
                 onRetry: _refreshDashboard,
               ),
+
             if (!state.isLoadingBanners &&
                 state.errorMessageBanner == null &&
                 (state.banners?.isNotEmpty ?? false))
@@ -507,6 +507,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       );
                 },
               ),
+
             if (!state.isLoadingBanners &&
                 state.errorMessageBanner == null &&
                 (state.banners?.isEmpty ?? true))
@@ -517,6 +518,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ),
+
             const SizedBox(height: 100),
           ],
         ),

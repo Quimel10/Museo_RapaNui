@@ -1,4 +1,3 @@
-// lib/features/places/presentation/screens/places_root_screen.dart
 import 'dart:async';
 import 'dart:math';
 
@@ -10,10 +9,10 @@ import 'package:disfruta_antofagasta/features/home/presentation/widgets/place_sk
 import 'package:disfruta_antofagasta/features/places/presentation/state/place_provider.dart';
 import 'package:disfruta_antofagasta/features/places/presentation/widgets/section_error.dart';
 import 'package:disfruta_antofagasta/shared/provider/api_client_provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:easy_localization/easy_localization.dart';
 
 class PlacesScreen extends ConsumerStatefulWidget {
   const PlacesScreen({super.key});
@@ -150,17 +149,20 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
               CategoryChipsList(
                 items: state.categories!,
                 selectedId: state.selectedCategoryId,
-                onChanged: (cat) {
-                  ref
-                      .read(analyticsProvider)
-                      .clickCategory(
-                        cat.id,
-                        meta: {'screen': 'Piezas', 'name': cat.name},
-                      );
+                padding: EdgeInsets.zero,
+                onChanged: (cat, isSelected) {
+                  // ✅ Solo sumar cuando se selecciona, no al deseleccionar
+                  if (isSelected) {
+                    ref
+                        .read(analyticsProvider)
+                        .clickCategory(
+                          cat.id,
+                          meta: {'screen': 'Piezas', 'name': cat.name},
+                        );
+                  }
 
                   ref.read(placeProvider.notifier).selectCategory(cat.id);
                 },
-                padding: EdgeInsets.zero,
               ),
               const SizedBox(height: 12),
             ],
@@ -215,7 +217,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                 },
               ),
 
-              // paginación (solo skeleton cuando carga más)
               if (!isSearching && state.isLoadingMore == true) ...[
                 const SizedBox(height: 12),
                 const PlaceSkeleton(),

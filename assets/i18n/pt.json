@@ -1,61 +1,57 @@
 {
   "app": {
-    "name": "Museu RapaNui"
+    "name": "Museo RapaNui"
   },
-
   "home": {
     "welcome": "Bem-vindo!",
     "featured": "Destaques",
-    "search": "Que peça você procura?",
-    "no_featured": "Não há peças em destaque no momento.",
+    "search": "Qual peça você procura?",
+    "no_featured": "Não há peças em destaque por enquanto.",
     "info_banners": "Banners informativos",
-    "no_banners": "Não há banners informativos no momento.",
-    "banner_load_error": "Não foi possível carregar os banners informativos. Tente novamente mais tarde.",
-    "no_audio": "Esta peça não possui áudio disponível.",
+    "no_banners": "Por enquanto não há banners informativos.",
+    "banner_load_error": "Não conseguimos carregar os banners informativos. Tente novamente mais tarde.",
+    "no_audio": "Esta peça não tem áudio disponível.",
     "logout_tooltip": "Sair"
   },
-
   "tabs": {
     "home": "Início",
-    "scan": "Ler QR",
+    "scan": "Escanear QR",
     "pieces": "Peças",
     "places": "Peças",
     "map": "Mapa",
     "favorites": "Favoritos",
     "search": "Buscar"
   },
-
   "pieces": {
     "title": "Peças",
-    "search": "Que peça deseja buscar?"
+    "search": "Qual peça buscar?"
   },
-
   "piece_detail": {
     "description_title": "Descrição",
     "references_title": "Referências:",
     "images_title": "Imagens da peça",
     "play_audio": "Reproduzir áudio",
     "pause_audio": "Pausar áudio",
+    "play_audio_button": "Reproduzir áudio",
+    "playing_now": "Reproduzindo",
+    "paused": "Pausado",
+    "tap_to_play": "Toque para reproduzir",
     "load_error": "Não foi possível carregar a peça.",
     "not_found": "Peça não encontrada."
   },
-
   "player": {
     "play_audio": "Reproduzir áudio",
     "pause_audio": "Pausar áudio",
     "loading_audio": "Carregando áudio...",
     "audio_error": "Não foi possível reproduzir o áudio."
   },
-
   "actions": {
     "retry": "Tentar novamente"
   },
-
   "errors": {
     "place_not_loaded": "Não foi possível carregar a peça.",
     "place_not_found": "A peça não foi encontrada."
   },
-
   "place": {
     "description": "Descrição",
     "images_of_piece": "Imagens da peça"

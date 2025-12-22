@@ -1,67 +1,137 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
-/// Proveedor global del servicio de audio
-final audioPlayerProvider = Provider<AudioPlayerService>((ref) {
-  final player = AudioPlayer();
-  ref.onDispose(player.dispose);
-  return AudioPlayerService(player);
+final audioPlayerProvider = ChangeNotifierProvider<AudioPlayerService>((ref) {
+  final svc = AudioPlayerService();
+  ref.onDispose(() => svc.dispose());
+  return svc;
 });
 
-class AudioPlayerService {
-  AudioPlayerService(this._player);
+class AudioPlayerService extends ChangeNotifier {
+  final AudioPlayer _player = AudioPlayer();
 
-  final AudioPlayer _player;
-  String? _currentUrl;
+  StreamSubscription<bool>? _playingSub;
+  StreamSubscription<Duration>? _posSub;
+  StreamSubscription<Duration?>? _durSub;
+  StreamSubscription<PlayerState>? _stateSub;
 
-  // Streams para el mini-player y full-player
-  Stream<Duration> get positionStream => _player.positionStream;
-  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
+  Duration _position = Duration.zero;
+  Duration? _duration;
 
-  Duration get position => _player.position;
-  Duration? get duration => _player.duration;
+  Duration get position => _position;
+  Duration? get duration => _duration;
   bool get isPlaying => _player.playing;
 
-  /// Si la URL cambia se carga desde 0, si es la misma se reanuda.
+  // ✅ Streams para UI
+  Stream<PlayerState> get playerStateStream => _player.playerStateStream;
+  Stream<Duration> get positionStream => _player.positionStream;
+  Stream<Duration?> get durationStream => _player.durationStream;
+  Stream<bool> get playingStream => _player.playingStream;
+
+  PlayerState get playerState => _player.playerState;
+
+  AudioPlayerService() {
+    _playingSub = _player.playingStream.listen((_) => notifyListeners());
+
+    _posSub = _player.positionStream.listen((p) {
+      _position = p;
+      notifyListeners();
+    });
+
+    _durSub = _player.durationStream.listen((d) {
+      _duration = d;
+      notifyListeners();
+    });
+
+    _stateSub = _player.playerStateStream.listen((_) => notifyListeners());
+  }
+
+  String? get currentUrl => _player.audioSource is UriAudioSource
+      ? (_player.audioSource as UriAudioSource).uri.toString()
+      : null;
+
+  /// ✅ Carga url si cambia, si es la misma reanuda.
+  /// ✅ Si quedó en completed, vuelve a 0 y reproduce.
   Future<void> playOrResume(String url) async {
-    if (_currentUrl != url) {
-      _currentUrl = url;
+    final clean = url.trim();
+    if (clean.isEmpty) return;
+
+    try {
+      final cur = currentUrl;
+
+      // Mismo URL: solo play (si completed -> seek(0))
+      if (cur != null && cur == clean) {
+        if (_player.playerState.processingState == ProcessingState.completed) {
+          await _player.seek(Duration.zero);
+        }
+        await _player.play();
+        notifyListeners();
+        return;
+      }
+
+      // URL distinta: detener + cargar nuevo
       await _player.stop();
-      await _player.setUrl(url);
-      await _player.seek(Duration.zero);
+      _position = Duration.zero;
+      _duration = null;
+      notifyListeners();
+
+      await _player.setUrl(clean);
+      await _player.play();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Audio playOrResume error: $e');
     }
-    await _player.play();
   }
 
-  /// Pausar sin perder la posición
-  Future<void> pause() => _player.pause();
+  Future<void> play() async {
+    try {
+      if (_player.playerState.processingState == ProcessingState.completed) {
+        await _player.seek(Duration.zero);
+      }
+      await _player.play();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Audio play error: $e');
+    }
+  }
 
-  /// Detener completamente (sin mantener posición)
+  Future<void> pause() async {
+    try {
+      await _player.pause();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Audio pause error: $e');
+    }
+  }
+
   Future<void> stop() async {
-    await _player.stop();
-  }
-
-  Future<void> seek(Duration position) => _player.seek(position);
-
-  /// Saltar hacia adelante (por ejemplo 10 segundos)
-  Future<void> skipForward(Duration offset) async {
-    final current = _player.position;
-    final total = _player.duration;
-
-    var target = current + offset;
-    if (total != null && target > total) {
-      target = total;
+    try {
+      await _player.stop();
+      _position = Duration.zero;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Audio stop error: $e');
     }
-    if (target < Duration.zero) target = Duration.zero;
-
-    await _player.seek(target);
   }
 
-  /// Saltar hacia atrás (por ejemplo 10 segundos)
-  Future<void> skipBackward(Duration offset) async {
-    final current = _player.position;
-    var target = current - offset;
-    if (target < Duration.zero) target = Duration.zero;
-    await _player.seek(target);
+  Future<void> seek(Duration target) async {
+    try {
+      await _player.seek(target);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Audio seek error: $e');
+    }
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _playingSub?.cancel();
+    await _posSub?.cancel();
+    await _durSub?.cancel();
+    await _stateSub?.cancel();
+    await _player.dispose();
+    super.dispose();
   }
 }

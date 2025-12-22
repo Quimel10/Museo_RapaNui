@@ -1,41 +1,37 @@
-// lib/shared/audio/now_playing_player.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
-
-// ✅ Solo este import (NO style.dart, porque tu flutter_html no lo trae)
 import 'package:flutter_html/flutter_html.dart';
 
 import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
 import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
 
-/// MINI PLAYER (barra de abajo) – estilo Louvre, SIN corazón ni subrayado
 class NowPlayingMiniBar extends ConsumerWidget {
   const NowPlayingMiniBar({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final nowPlaying = ref.watch(nowPlayingProvider);
-
-    // Nada cargado → no mostrar mini-player
-    if (!nowPlaying.hasAudio) {
-      return const SizedBox.shrink();
-    }
+    if (!nowPlaying.hasAudio) return const SizedBox.shrink();
 
     final PlaceEntity? place = nowPlaying.place;
     final audio = ref.watch(audioPlayerProvider);
 
-    // ✅ Cover: primero PlaceEntity (Home), si no existe usa nowPlaying.imageUrl (Piezas)
     final String cover = (place != null && place.imagenHigh.isNotEmpty)
         ? place.imagenHigh
         : (nowPlaying.imageUrl ?? '');
 
-    return SafeArea(
-      // margen para no pisar el bottom nav / gestos
-      minimum: const EdgeInsets.only(bottom: 56),
-      child: Align(
-        alignment: Alignment.bottomCenter,
+    // ✅ separación “bonita” del bottom nav
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    final extraLift = 16.0; // 👈 ajusta si quieres más/menos
+    final navApprox = 56.0; // altura típica bottom nav
+    final safeBottom = bottomPad + navApprox + extraLift;
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(left: 12, right: 12, bottom: safeBottom),
         child: GestureDetector(
           onTap: () => _openFullPlayer(context),
           onVerticalDragUpdate: (details) {
@@ -44,15 +40,14 @@ class NowPlayingMiniBar extends ConsumerWidget {
             }
           },
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF101010),
               borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white10),
             ),
             child: Row(
               children: [
-                // Mini portada
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: SizedBox(
@@ -69,7 +64,6 @@ class NowPlayingMiniBar extends ConsumerWidget {
                 ),
                 const SizedBox(width: 10),
 
-                // Título SIN subrayado
                 Expanded(
                   child: Text(
                     nowPlaying.title,
@@ -86,7 +80,7 @@ class NowPlayingMiniBar extends ConsumerWidget {
 
                 const SizedBox(width: 8),
 
-                // Botón play/pausa usando provider
+                // ✅ icono y acción dependen del estado REAL del audio
                 StreamBuilder<PlayerState>(
                   stream: audio.playerStateStream,
                   builder: (context, snapshot) {
@@ -111,7 +105,6 @@ class NowPlayingMiniBar extends ConsumerWidget {
                   },
                 ),
 
-                // ❌ Botón cerrar (X)
                 IconButton(
                   iconSize: 22,
                   icon: const Icon(Icons.close_rounded, color: Colors.white70),
@@ -141,7 +134,6 @@ class NowPlayingMiniBar extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black54,
       builder: (_) {
-        // ✨ Animación fade + slide up
         return TweenAnimationBuilder<double>(
           tween: Tween(begin: 0, end: 1),
           duration: const Duration(milliseconds: 260),
@@ -161,35 +153,26 @@ class NowPlayingMiniBar extends ConsumerWidget {
   }
 }
 
-/// FULL SCREEN PLAYER – con animación y botón X para cerrar
 class NowPlayingFullPlayerSheet extends ConsumerWidget {
   const NowPlayingFullPlayerSheet({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final nowPlaying = ref.watch(nowPlayingProvider);
-
-    if (!nowPlaying.hasAudio) {
-      return const SizedBox.shrink();
-    }
+    if (!nowPlaying.hasAudio) return const SizedBox.shrink();
 
     final PlaceEntity? place = nowPlaying.place;
     final audio = ref.watch(audioPlayerProvider);
-    final duration = audio.duration ?? const Duration(seconds: 0);
+    final duration = audio.duration ?? Duration.zero;
 
-    // ✅ Cover: primero PlaceEntity, si no existe usa nowPlaying.imageUrl
     final String cover = (place != null && place.imagenHigh.isNotEmpty)
         ? place.imagenHigh
         : (nowPlaying.imageUrl ?? '');
 
-    // ✅ Descripción HTML (si viene)
     final String descHtml = (nowPlaying.descriptionHtml ?? '').trim();
-
-    // ✅ Esto es lo que arregla tu problema: padding real de status bar + margen extra
     final double topInset = MediaQuery.of(context).padding.top;
 
     return SafeArea(
-      // 👇 IMPORTANTÍSIMO: no uses el top de SafeArea, lo controlamos nosotros
       top: false,
       child: Container(
         decoration: const BoxDecoration(
@@ -197,12 +180,10 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            // Barra de arrastre + botón X (más abajo, sin chocar con la hora)
             Padding(
               padding: EdgeInsets.only(
-                top: topInset + 34, // ✅ baja la X y el header
+                top: topInset + 34,
                 left: 8,
                 right: 8,
                 bottom: 6,
@@ -242,7 +223,6 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Imagen grande
                     Center(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
@@ -285,13 +265,11 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
 
                     const SizedBox(height: 24),
 
-                    // PROGRESS BAR + tiempos
                     StreamBuilder<Duration>(
                       stream: audio.positionStream,
                       initialData: audio.position,
                       builder: (context, snapshot) {
                         final pos = snapshot.data ?? Duration.zero;
-
                         final effectiveDuration = duration.inMilliseconds > 0
                             ? duration
                             : pos;
@@ -300,9 +278,9 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                             ? effectiveDuration.inMilliseconds
                             : 1;
 
-                        final sliderMax = maxMs.toDouble();
-                        final valueMs = pos.inMilliseconds.clamp(0, maxMs);
-                        final sliderValue = valueMs.toDouble();
+                        final valueMs = pos.inMilliseconds
+                            .clamp(0, maxMs)
+                            .toDouble();
 
                         return Column(
                           children: [
@@ -314,13 +292,10 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                                 ),
                               ),
                               child: Slider(
-                                value: sliderValue,
-                                max: sliderMax,
+                                value: valueMs,
+                                max: maxMs.toDouble(),
                                 onChanged: (v) {
-                                  final target = Duration(
-                                    milliseconds: v.round(),
-                                  );
-                                  audio.seek(target);
+                                  audio.seek(Duration(milliseconds: v.round()));
                                 },
                               ),
                             ),
@@ -328,14 +303,14 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  _formatDuration(pos),
+                                  _fmt(pos),
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
                                   ),
                                 ),
                                 Text(
-                                  _formatDuration(effectiveDuration),
+                                  _fmt(effectiveDuration),
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -350,7 +325,6 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
 
                     const SizedBox(height: 24),
 
-                    // CONTROLES (con saltos ±10s)
                     Center(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -431,7 +405,6 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
 
                     const SizedBox(height: 18),
 
-                    // Botón cerrar reproducción (stop + limpiar estado)
                     Center(
                       child: TextButton.icon(
                         onPressed: () async {
@@ -449,7 +422,6 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
                       ),
                     ),
 
-                    // ✅ Descripción completa (si vino desde Piezas)
                     if (descHtml.isNotEmpty) ...[
                       const SizedBox(height: 18),
                       const Text(
@@ -485,7 +457,7 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
     );
   }
 
-  String _formatDuration(Duration d) {
+  String _fmt(Duration d) {
     final totalSeconds = d.inSeconds;
     final minutes = totalSeconds ~/ 60;
     final seconds = totalSeconds % 60;

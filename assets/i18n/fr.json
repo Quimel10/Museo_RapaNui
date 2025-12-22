@@ -1,18 +1,18 @@
 {
-  "app": { "name": "Musée RapaNui" },
-
+  "app": {
+    "name": "Museo RapaNui"
+  },
   "home": {
     "welcome": "Bienvenue !",
     "featured": "À la une",
     "search": "Quelle pièce recherchez-vous ?",
-    "no_featured": "Il n'y a pas de pièces en vedette pour le moment.",
+    "no_featured": "Aucune pièce à la une pour le moment.",
     "info_banners": "Bannières informatives",
-    "no_banners": "Il n'y a pas de bannières informatives pour le moment.",
-    "banner_load_error": "Impossible de charger les bannières informatives. Réessayez plus tard.",
-    "no_audio": "Cette pièce ne possède pas de piste audio.",
+    "no_banners": "Aucune bannière informative pour le moment.",
+    "banner_load_error": "Impossible de charger les bannières informatives. Veuillez réessayer plus tard.",
+    "no_audio": "Cette pièce n'a pas d'audio disponible.",
     "logout_tooltip": "Se déconnecter"
   },
-
   "tabs": {
     "home": "Accueil",
     "scan": "Scanner QR",
@@ -22,38 +22,36 @@
     "favorites": "Favoris",
     "search": "Rechercher"
   },
-
   "pieces": {
     "title": "Pièces",
-    "search": "Quelle pièce recherchez-vous ?"
+    "search": "Quelle pièce rechercher ?"
   },
-
   "piece_detail": {
     "description_title": "Description",
     "references_title": "Références :",
     "images_title": "Images de la pièce",
     "play_audio": "Lire l'audio",
-    "pause_audio": "Mettre l'audio en pause",
+    "pause_audio": "Mettre en pause",
+    "play_audio_button": "Lire l'audio",
+    "playing_now": "Lecture en cours",
+    "paused": "En pause",
+    "tap_to_play": "Touchez pour lire",
     "load_error": "Impossible de charger la pièce.",
     "not_found": "Pièce introuvable."
   },
-
   "player": {
-    "play_audio": "Lire l’audio",
+    "play_audio": "Lire l'audio",
     "pause_audio": "Mettre en pause",
-    "loading_audio": "Chargement de l’audio...",
-    "audio_error": "Impossible de lire l’audio."
+    "loading_audio": "Chargement de l'audio...",
+    "audio_error": "Impossible de lire l'audio."
   },
-
   "actions": {
     "retry": "Réessayer"
   },
-
   "errors": {
     "place_not_loaded": "Impossible de charger la pièce.",
     "place_not_found": "La pièce est introuvable."
   },
-
   "place": {
     "description": "Description",
     "images_of_piece": "Images de la pièce"

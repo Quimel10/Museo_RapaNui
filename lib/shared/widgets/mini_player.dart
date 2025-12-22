@@ -12,9 +12,6 @@ class MiniPlayer extends ConsumerWidget {
 
     if (!nowPlaying.hasAudio) return const SizedBox.shrink();
 
-    final audio = ref.watch(audioPlayerProvider);
-    final isPlaying = nowPlaying.isPlaying;
-
     return GestureDetector(
       onTap: () {
         showModalBottomSheet(
@@ -36,7 +33,6 @@ class MiniPlayer extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              // Imagen (placeholder museo)
               Container(
                 width: 48,
                 height: 48,
@@ -46,12 +42,8 @@ class MiniPlayer extends ConsumerWidget {
                 ),
                 child: const Icon(Icons.museum, color: Colors.white, size: 24),
               ),
-
               const SizedBox(width: 12),
 
-              // ===========================
-              //       TÍTULO SIN SUBRAYADO
-              // ===========================
               Expanded(
                 child: Text(
                   nowPlaying.title,
@@ -61,28 +53,23 @@ class MiniPlayer extends ConsumerWidget {
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
-                    decoration: TextDecoration.none, // 🔥 SIN SUBRAYADO
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ),
 
               const SizedBox(width: 12),
 
-              // Botón Play/Pause
               IconButton(
                 icon: Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  nowPlaying.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
                   size: 32,
                   color: Colors.white,
                 ),
                 onPressed: () async {
-                  if (isPlaying) {
-                    await audio.pause();
-                    ref.read(nowPlayingProvider.notifier).setIsPlaying(false);
-                  } else {
-                    await audio.playOrResume(nowPlaying.url!);
-                    ref.read(nowPlayingProvider.notifier).setIsPlaying(true);
-                  }
+                  await ref.read(nowPlayingProvider.notifier).toggle();
                 },
               ),
             ],
@@ -95,6 +82,12 @@ class MiniPlayer extends ConsumerWidget {
 
 class _FullPlayerSheet extends ConsumerWidget {
   const _FullPlayerSheet();
+
+  String _format(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return "$m:$s";
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -118,7 +111,6 @@ class _FullPlayerSheet extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           child: Column(
             children: [
-              // Barra para arrastrar
               Container(
                 width: 40,
                 height: 5,
@@ -130,7 +122,6 @@ class _FullPlayerSheet extends ConsumerWidget {
 
               const SizedBox(height: 25),
 
-              // Título sin subrayado
               Text(
                 nowPlaying.title,
                 textAlign: TextAlign.center,
@@ -138,7 +129,7 @@ class _FullPlayerSheet extends ConsumerWidget {
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 22,
-                  decoration: TextDecoration.none, // 🔥
+                  decoration: TextDecoration.none,
                 ),
               ),
 
@@ -150,13 +141,12 @@ class _FullPlayerSheet extends ConsumerWidget {
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
-                  decoration: TextDecoration.none, // 🔥
+                  decoration: TextDecoration.none,
                 ),
               ),
 
               const SizedBox(height: 30),
 
-              // Slider
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   trackHeight: 3,
@@ -169,7 +159,9 @@ class _FullPlayerSheet extends ConsumerWidget {
                       .clamp(0, duration.inMilliseconds)
                       .toDouble(),
                   min: 0,
-                  max: duration.inMilliseconds.toDouble(),
+                  max: duration.inMilliseconds.toDouble() == 0
+                      ? 1
+                      : duration.inMilliseconds.toDouble(),
                   activeColor: Colors.white,
                   inactiveColor: Colors.white24,
                   onChanged: (v) {
@@ -204,13 +196,7 @@ class _FullPlayerSheet extends ConsumerWidget {
                   color: Colors.white,
                 ),
                 onPressed: () async {
-                  if (nowPlaying.isPlaying) {
-                    await audio.pause();
-                    ref.read(nowPlayingProvider.notifier).setIsPlaying(false);
-                  } else {
-                    await audio.playOrResume(nowPlaying.url!);
-                    ref.read(nowPlayingProvider.notifier).setIsPlaying(true);
-                  }
+                  await ref.read(nowPlayingProvider.notifier).toggle();
                 },
               ),
             ],
@@ -218,11 +204,5 @@ class _FullPlayerSheet extends ConsumerWidget {
         );
       },
     );
-  }
-
-  String _format(Duration d) {
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return "$m:$s";
   }
 }

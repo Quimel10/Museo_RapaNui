@@ -4,7 +4,10 @@ import 'package:disfruta_antofagasta/config/theme/theme_config.dart';
 class CategoryChipsList extends StatelessWidget {
   final List<dynamic> items;
   final int? selectedId;
-  final Function(dynamic) onChanged;
+
+  /// ✅ Ahora devolvemos también si se está seleccionando (true) o deseleccionando (false)
+  final void Function(dynamic cat, bool isSelected) onChanged;
+
   final EdgeInsetsGeometry padding;
 
   const CategoryChipsList({
@@ -27,7 +30,10 @@ class CategoryChipsList extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
-              onTap: () => onChanged(cat),
+              onTap: () {
+                // ✅ true solo cuando pasa de off → on
+                onChanged(cat, !active);
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,

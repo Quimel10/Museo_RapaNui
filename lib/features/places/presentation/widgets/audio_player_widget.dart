@@ -51,11 +51,14 @@ class AudioPlayerWidget extends ConsumerWidget {
     }
 
     final bool isThisTrackActive = (nowPlaying.url ?? '') == url;
-    final bool isPlayingThis = isThisTrackActive && audio.isPlaying;
+
+    // ✅ CLAVE: el estado visual NO viene de audio.isPlaying, viene del estado global sincronizado
+    final bool isPlayingThis = isThisTrackActive && nowPlaying.isPlaying;
 
     Future<void> onToggle() async {
       final notifier = ref.read(nowPlayingProvider.notifier);
 
+      // Si no es el track actual, lo cargamos y reproducimos
       if (!isThisTrackActive) {
         await notifier.playFromUrl(
           url: url,
@@ -63,19 +66,14 @@ class AudioPlayerWidget extends ConsumerWidget {
           subtitle: subtitle.isNotEmpty ? subtitle : (place?.descCorta ?? ''),
           placeId: place?.id,
           place: place,
-
-          // ✅ NUEVO
           imageUrl: imageUrl,
           descriptionHtml: descriptionHtml,
         );
         return;
       }
 
-      if (audio.isPlaying) {
-        await notifier.pause();
-      } else {
-        await notifier.resume();
-      }
+      // ✅ Si es el track actual: SIEMPRE toggle (misma lógica que mini-player)
+      await notifier.toggle();
     }
 
     return Column(
@@ -120,12 +118,13 @@ class AudioPlayerWidget extends ConsumerWidget {
           stream: audio.positionStream,
           initialData: audio.position,
           builder: (context, snapPos) {
-            final pos = (isThisTrackActive)
+            final pos = isThisTrackActive
                 ? (snapPos.data ?? Duration.zero)
                 : Duration.zero;
-            final dur = (isThisTrackActive
+
+            final dur = isThisTrackActive
                 ? (audio.duration ?? Duration.zero)
-                : Duration.zero);
+                : Duration.zero;
 
             final totalMs = dur.inMilliseconds.clamp(1, 24 * 60 * 60 * 1000);
             final posMs = pos.inMilliseconds.clamp(0, totalMs);
@@ -143,28 +142,26 @@ class AudioPlayerWidget extends ConsumerWidget {
                     min: 0,
                     max: totalMs.toDouble(),
                     value: posMs.toDouble(),
-                    onChanged: (v) {
+                    onChanged: (v) async {
                       final newPos = Duration(milliseconds: v.toInt());
+                      final notifier = ref.read(nowPlayingProvider.notifier);
 
+                      // Si no está activo, primero lo activamos y luego seek
                       if (!isThisTrackActive) {
-                        ref
-                            .read(nowPlayingProvider.notifier)
-                            .playFromUrl(
-                              url: url,
-                              title: title,
-                              subtitle: subtitle.isNotEmpty
-                                  ? subtitle
-                                  : (place?.descCorta ?? ''),
-                              placeId: place?.id,
-                              place: place,
-
-                              // ✅ NUEVO
-                              imageUrl: imageUrl,
-                              descriptionHtml: descriptionHtml,
-                            )
-                            .then((_) => audio.seek(newPos));
+                        await notifier.playFromUrl(
+                          url: url,
+                          title: title,
+                          subtitle: subtitle.isNotEmpty
+                              ? subtitle
+                              : (place?.descCorta ?? ''),
+                          placeId: place?.id,
+                          place: place,
+                          imageUrl: imageUrl,
+                          descriptionHtml: descriptionHtml,
+                        );
+                        await audio.seek(newPos);
                       } else {
-                        audio.seek(newPos);
+                        await audio.seek(newPos);
                       }
                     },
                     activeColor: Colors.white,
