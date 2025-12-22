@@ -55,5 +55,10 @@
   "place": {
     "description": "Descripción",
     "images_of_piece": "Imágenes de la pieza"
+  },
+  "scanner": {
+    "invalid_title": "Código no válido",
+    "invalid_body": "El QR leído no contiene un ID numérico: \"{code}\"",
+    "close": "Cerrar"
   }
 }

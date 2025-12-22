@@ -1,15 +1,13 @@
 {
-  "app": {
-    "name": "Museo RapaNui"
-  },
+  "app": { "name": "Museo RapaNui" },
   "home": {
     "welcome": "Bienvenue !",
     "featured": "À la une",
-    "search": "Quelle pièce recherchez-vous ?",
-    "no_featured": "Aucune pièce à la une pour le moment.",
-    "info_banners": "Bannières informatives",
-    "no_banners": "Aucune bannière informative pour le moment.",
-    "banner_load_error": "Impossible de charger les bannières informatives. Veuillez réessayer plus tard.",
+    "search": "Quelle pièce cherchez-vous ?",
+    "no_featured": "Aucune pièce en vedette pour le moment.",
+    "info_banners": "Bannières d'information",
+    "no_banners": "Aucune bannière d'information pour le moment.",
+    "banner_load_error": "Impossible de charger les bannières d'information. Veuillez réessayer plus tard.",
     "no_audio": "Cette pièce n'a pas d'audio disponible.",
     "logout_tooltip": "Se déconnecter"
   },
@@ -33,9 +31,9 @@
     "play_audio": "Lire l'audio",
     "pause_audio": "Mettre en pause",
     "play_audio_button": "Lire l'audio",
-    "playing_now": "Lecture en cours",
+    "playing_now": "Lecture",
     "paused": "En pause",
-    "tap_to_play": "Touchez pour lire",
+    "tap_to_play": "Appuyez pour lire",
     "load_error": "Impossible de charger la pièce.",
     "not_found": "Pièce introuvable."
   },
@@ -45,15 +43,18 @@
     "loading_audio": "Chargement de l'audio...",
     "audio_error": "Impossible de lire l'audio."
   },
-  "actions": {
-    "retry": "Réessayer"
-  },
+  "actions": { "retry": "Réessayer" },
   "errors": {
     "place_not_loaded": "Impossible de charger la pièce.",
-    "place_not_found": "La pièce est introuvable."
+    "place_not_found": "Pièce introuvable."
   },
   "place": {
     "description": "Description",
     "images_of_piece": "Images de la pièce"
+  },
+  "scanner": {
+    "invalid_title": "Code invalide",
+    "invalid_body": "Le QR scanné ne contient pas d'ID numérique : \"{code}\"",
+    "close": "Fermer"
   }
 }

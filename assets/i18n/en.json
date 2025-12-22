@@ -1,15 +1,13 @@
 {
-  "app": {
-    "name": "Museo RapaNui"
-  },
+  "app": { "name": "Museo RapaNui" },
   "home": {
     "welcome": "Welcome!",
     "featured": "Featured",
     "search": "Which piece are you looking for?",
-    "no_featured": "There are no featured pieces for now.",
-    "info_banners": "Information banners",
-    "no_banners": "There are no information banners for now.",
-    "banner_load_error": "We couldn't load the information banners. Please try again later.",
+    "no_featured": "No featured pieces for now.",
+    "info_banners": "Info banners",
+    "no_banners": "No info banners for now.",
+    "banner_load_error": "We couldn't load the info banners. Please try again later.",
     "no_audio": "This piece has no audio available.",
     "logout_tooltip": "Log out"
   },
@@ -33,27 +31,30 @@
     "play_audio": "Play audio",
     "pause_audio": "Pause audio",
     "play_audio_button": "Play audio",
-    "playing_now": "Now playing",
+    "playing_now": "Playing",
     "paused": "Paused",
     "tap_to_play": "Tap to play",
-    "load_error": "Could not load the piece.",
+    "load_error": "Couldn't load the piece.",
     "not_found": "Piece not found."
   },
   "player": {
     "play_audio": "Play audio",
     "pause_audio": "Pause audio",
     "loading_audio": "Loading audio...",
-    "audio_error": "Audio could not be played."
+    "audio_error": "Couldn't play the audio."
   },
-  "actions": {
-    "retry": "Retry"
-  },
+  "actions": { "retry": "Retry" },
   "errors": {
-    "place_not_loaded": "Could not load the piece.",
-    "place_not_found": "The piece was not found."
+    "place_not_loaded": "Couldn't load the piece.",
+    "place_not_found": "Piece was not found."
   },
   "place": {
     "description": "Description",
     "images_of_piece": "Piece images"
+  },
+  "scanner": {
+    "invalid_title": "Invalid code",
+    "invalid_body": "The scanned QR does not contain a numeric ID: \"{code}\"",
+    "close": "Close"
   }
 }

@@ -1,15 +1,13 @@
 {
-  "app": {
-    "name": "Museo RapaNui"
-  },
+  "app": { "name": "Museo RapaNui" },
   "home": {
     "welcome": "Bem-vindo!",
     "featured": "Destaques",
     "search": "Qual peça você procura?",
-    "no_featured": "Não há peças em destaque por enquanto.",
+    "no_featured": "Não há peças em destaque no momento.",
     "info_banners": "Banners informativos",
-    "no_banners": "Por enquanto não há banners informativos.",
-    "banner_load_error": "Não conseguimos carregar os banners informativos. Tente novamente mais tarde.",
+    "no_banners": "Não há banners informativos no momento.",
+    "banner_load_error": "Não foi possível carregar os banners informativos. Tente novamente mais tarde.",
     "no_audio": "Esta peça não tem áudio disponível.",
     "logout_tooltip": "Sair"
   },
@@ -45,9 +43,7 @@
     "loading_audio": "Carregando áudio...",
     "audio_error": "Não foi possível reproduzir o áudio."
   },
-  "actions": {
-    "retry": "Tentar novamente"
-  },
+  "actions": { "retry": "Tentar novamente" },
   "errors": {
     "place_not_loaded": "Não foi possível carregar a peça.",
     "place_not_found": "A peça não foi encontrada."
@@ -55,5 +51,10 @@
   "place": {
     "description": "Descrição",
     "images_of_piece": "Imagens da peça"
+  },
+  "scanner": {
+    "invalid_title": "Código inválido",
+    "invalid_body": "O QR lido não contém um ID numérico: \"{code}\"",
+    "close": "Fechar"
   }
 }

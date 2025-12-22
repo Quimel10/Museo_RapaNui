@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -14,6 +15,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
   QRViewController? controller;
   bool isProcessing = false;
+  bool _flashOn = false;
 
   @override
   void reassemble() {
@@ -28,8 +30,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     super.dispose();
   }
 
-  void _onQRViewCreated(QRViewController c) {
+  void _onQRViewCreated(QRViewController c) async {
     controller = c;
+
+    // Setea estado inicial del flash si la lib lo soporta
+    try {
+      final status = await controller?.getFlashStatus();
+      if (mounted && status != null) setState(() => _flashOn = status);
+    } catch (_) {}
 
     c.scannedDataStream.listen((scanData) async {
       if (isProcessing) return;
@@ -56,12 +64,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Código no válido'),
-          content: Text('El QR leído no contiene un ID numérico: "$code"'),
+          title: Text('scanner.invalid_title'.tr()),
+          content: Text('scanner.invalid_body'.tr(namedArgs: {'code': code})),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cerrar'),
+              child: Text('scanner.close'.tr()),
             ),
           ],
         ),
@@ -83,7 +91,16 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   Future<void> _toggleFlash() async {
     await controller?.toggleFlash();
-    setState(() {});
+    try {
+      final status = await controller?.getFlashStatus();
+      if (mounted && status != null) {
+        setState(() => _flashOn = status);
+      } else {
+        setState(() => _flashOn = !_flashOn);
+      }
+    } catch (_) {
+      setState(() => _flashOn = !_flashOn);
+    }
   }
 
   @override
@@ -177,20 +194,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             ),
           ),
 
-          /// 🔹 Barra superior
+          /// 🔹 Barra superior (SIN X) + título traducible + flash
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: () => context.pop(),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    "Escanear QR",
-                    style: TextStyle(
+                  // ✅ Sin botón X (eliminado a propósito)
+                  Text(
+                    // Reusa tu key existente para no tocar más JSON:
+                    // "tabs.scan": "Escanear QR"
+                    'tabs.scan'.tr(),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -199,7 +214,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   const Spacer(),
                   IconButton(
                     onPressed: _toggleFlash,
-                    icon: const Icon(Icons.flash_on, color: Colors.white),
+                    icon: Icon(
+                      _flashOn ? Icons.flash_on : Icons.flash_off,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
