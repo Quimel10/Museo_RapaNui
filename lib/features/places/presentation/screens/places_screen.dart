@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:disfruta_antofagasta/config/router/routes.dart';
 import 'package:disfruta_antofagasta/config/theme/theme_config.dart';
 import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/widgets/category_pill.dart';
@@ -144,14 +145,13 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
             ),
             const SizedBox(height: 12),
 
-            // CATEGORÍAS (toggle real)
+            // CATEGORÍAS
             if (state.categories != null) ...[
               CategoryChipsList(
                 items: state.categories!,
                 selectedId: state.selectedCategoryId,
                 padding: EdgeInsets.zero,
                 onChanged: (cat, isSelected) {
-                  // ✅ Solo sumar cuando se selecciona, no al deseleccionar
                   if (isSelected) {
                     ref
                         .read(analyticsProvider)
@@ -160,7 +160,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                           meta: {'screen': 'Piezas', 'name': cat.name},
                         );
                   }
-
                   ref.read(placeProvider.notifier).selectCategory(cat.id);
                 },
               ),
@@ -211,12 +210,13 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                             meta: {'screen': 'Piezas', 'name': p.titulo},
                           );
                       FocusScope.of(context).unfocus();
-                      context.push('/place/${p.id}');
+
+                      // ✅ ruta dentro del TAB PIEZAS (mantiene menú)
+                      context.push('${AppPath.places}/place/${p.id}');
                     },
                   );
                 },
               ),
-
               if (!isSearching && state.isLoadingMore == true) ...[
                 const SizedBox(height: 12),
                 const PlaceSkeleton(),

@@ -1,11 +1,15 @@
+// lib/shared/audio/now_playing_player.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:dio/dio.dart';
 
 import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
 import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
+import 'package:disfruta_antofagasta/shared/provider/dio_provider.dart';
 
 class NowPlayingMiniBar extends ConsumerWidget {
   const NowPlayingMiniBar({super.key});
@@ -22,10 +26,10 @@ class NowPlayingMiniBar extends ConsumerWidget {
         ? place.imagenHigh
         : (nowPlaying.imageUrl ?? '');
 
-    // ✅ separación “bonita” del bottom nav
+    // ✅ Pegado al bottom nav
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    final extraLift = 16.0; // 👈 ajusta si quieres más/menos
-    final navApprox = 56.0; // altura típica bottom nav
+    final navApprox = 56.0;
+    final extraLift = 2.0; // 0..6 si querés tocar más/menos
     final safeBottom = bottomPad + navApprox + extraLift;
 
     return Align(
@@ -63,7 +67,6 @@ class NowPlayingMiniBar extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-
                 Expanded(
                   child: Text(
                     nowPlaying.title,
@@ -77,10 +80,8 @@ class NowPlayingMiniBar extends ConsumerWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 8),
 
-                // ✅ icono y acción dependen del estado REAL del audio
                 StreamBuilder<PlayerState>(
                   stream: audio.playerStateStream,
                   builder: (context, snapshot) {
@@ -153,24 +154,135 @@ class NowPlayingMiniBar extends ConsumerWidget {
   }
 }
 
-class NowPlayingFullPlayerSheet extends ConsumerWidget {
+class _PieceExtras {
+  final List<String> images;
+  final String descHtml;
+
+  const _PieceExtras({required this.images, required this.descHtml});
+}
+
+class NowPlayingFullPlayerSheet extends ConsumerStatefulWidget {
   const NowPlayingFullPlayerSheet({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NowPlayingFullPlayerSheet> createState() =>
+      _NowPlayingFullPlayerSheetState();
+}
+
+class _NowPlayingFullPlayerSheetState
+    extends ConsumerState<NowPlayingFullPlayerSheet> {
+  final PageController _pageCtrl = PageController();
+  int _page = 0;
+
+  String? _extrasKey;
+  Future<_PieceExtras>? _extrasFuture;
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  String _trOr(BuildContext context, String key, String fallback) {
+    final v = tr(key);
+    return (v == key) ? fallback : v;
+  }
+
+  Future<_PieceExtras> _loadExtras({
+    required Dio dio,
+    required int placeId,
+    required String lang,
+  }) async {
+    try {
+      final resp = await dio.get(
+        '/get_punto',
+        queryParameters: {'post_id': placeId, 'lang': lang},
+        options: Options(
+          sendTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 25),
+        ),
+      );
+
+      final data = resp.data;
+      if (data is! Map) return const _PieceExtras(images: [], descHtml: '');
+
+      // imágenes
+      final rawImgs = (data['img_medium'] as List<dynamic>?) ?? const [];
+      final imgs = rawImgs
+          .map((e) => e.toString())
+          .where(
+            (u) =>
+                u.isNotEmpty &&
+                (u.startsWith('http://') || u.startsWith('https://')),
+          )
+          .toList();
+
+      final seen = <String>{};
+      final outImgs = <String>[];
+      for (final u in imgs) {
+        if (seen.add(u)) outImgs.add(u);
+      }
+
+      // descripción
+      final d1 = (data['desc_larga_html'] ?? '')?.toString() ?? '';
+      final d2 = (data['desc_larga'] ?? '')?.toString() ?? '';
+      final desc = (d1.trim().isNotEmpty) ? d1.trim() : d2.trim();
+
+      return _PieceExtras(images: outImgs, descHtml: desc);
+    } catch (_) {
+      return const _PieceExtras(images: [], descHtml: '');
+    }
+  }
+
+  Future<_PieceExtras> _getExtrasFuture({
+    required Dio dio,
+    required int placeId,
+    required String lang,
+  }) {
+    final key = '$placeId|$lang';
+    if (_extrasKey == key && _extrasFuture != null) return _extrasFuture!;
+    _extrasKey = key;
+    _extrasFuture = _loadExtras(dio: dio, placeId: placeId, lang: lang);
+    return _extrasFuture!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final nowPlaying = ref.watch(nowPlayingProvider);
     if (!nowPlaying.hasAudio) return const SizedBox.shrink();
 
     final PlaceEntity? place = nowPlaying.place;
     final audio = ref.watch(audioPlayerProvider);
+    final dio = ref.watch(dioProvider);
+
     final duration = audio.duration ?? Duration.zero;
 
     final String cover = (place != null && place.imagenHigh.isNotEmpty)
         ? place.imagenHigh
         : (nowPlaying.imageUrl ?? '');
 
-    final String descHtml = (nowPlaying.descriptionHtml ?? '').trim();
+    // ✅ si viene vacío desde provider, lo completamos desde API
+    final String descFromProvider = (nowPlaying.descriptionHtml ?? '').trim();
+
     final double topInset = MediaQuery.of(context).padding.top;
+
+    final int? placeId = nowPlaying.placeId ?? place?.id;
+    final String lang = context.locale.languageCode;
+
+    final stopLabel = _trOr(
+      context,
+      'piece_detail.stop_audio_button',
+      'Detener audio',
+    );
+    final descTitle = _trOr(
+      context,
+      'piece_detail.description_title',
+      'Descripción',
+    );
+
+    final Future<_PieceExtras> extrasFuture = (placeId == null)
+        ? Future.value(const _PieceExtras(images: [], descHtml: ''))
+        : _getExtrasFuture(dio: dio, placeId: placeId, lang: lang);
 
     return SafeArea(
       top: false,
@@ -215,231 +327,305 @@ class NowPlayingFullPlayerSheet extends ConsumerWidget {
             ),
 
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: cover.isNotEmpty
-                              ? Image.network(
-                                  cover,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _fullPlaceholder(),
-                                )
-                              : _fullPlaceholder(),
-                        ),
-                      ),
+              child: FutureBuilder<_PieceExtras>(
+                future: extrasFuture,
+                builder: (context, snap) {
+                  final extras =
+                      snap.data ?? const _PieceExtras(images: [], descHtml: '');
+
+                  // ✅ Descripción final
+                  final String descHtml = descFromProvider.isNotEmpty
+                      ? descFromProvider
+                      : extras.descHtml;
+
+                  // ✅ Carousel final: cover + extras.images
+                  final urls = <String>[];
+                  final seen = <String>{};
+                  if (cover.isNotEmpty && seen.add(cover)) urls.add(cover);
+                  for (final u in extras.images) {
+                    if (seen.add(u)) urls.add(u);
+                  }
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
                     ),
-                    const SizedBox(height: 24),
-
-                    Text(
-                      nowPlaying.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    if (nowPlaying.subtitle.isNotEmpty)
-                      Text(
-                        nowPlaying.subtitle,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                          height: 1.4,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-
-                    const SizedBox(height: 24),
-
-                    StreamBuilder<Duration>(
-                      stream: audio.positionStream,
-                      initialData: audio.position,
-                      builder: (context, snapshot) {
-                        final pos = snapshot.data ?? Duration.zero;
-                        final effectiveDuration = duration.inMilliseconds > 0
-                            ? duration
-                            : pos;
-
-                        final maxMs = effectiveDuration.inMilliseconds > 0
-                            ? effectiveDuration.inMilliseconds
-                            : 1;
-
-                        final valueMs = pos.inMilliseconds
-                            .clamp(0, maxMs)
-                            .toDouble();
-
-                        return Column(
-                          children: [
-                            SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                trackHeight: 2.5,
-                                thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 7,
-                                ),
-                              ),
-                              child: Slider(
-                                value: valueMs,
-                                max: maxMs.toDouble(),
-                                onChanged: (v) {
-                                  audio.seek(Duration(milliseconds: v.round()));
-                                },
-                              ),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _fmt(pos),
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ==========================
+                        // ✅ CAROUSEL DE IMÁGENES
+                        // ==========================
+                        if (urls.isEmpty)
+                          _fullPlaceholder()
+                        else
+                          Column(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: AspectRatio(
+                                  aspectRatio: 1,
+                                  child: PageView.builder(
+                                    controller: _pageCtrl,
+                                    itemCount: urls.length,
+                                    onPageChanged: (i) =>
+                                        setState(() => _page = i),
+                                    itemBuilder: (_, i) {
+                                      return Image.network(
+                                        urls[i],
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            _fullPlaceholder(),
+                                      );
+                                    },
                                   ),
                                 ),
-                                Text(
-                                  _fmt(effectiveDuration),
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
+                              ),
+                              if (urls.length > 1) ...[
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: List.generate(
+                                    urls.length,
+                                    (i) => AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      width: (i == _page) ? 18 : 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: (i == _page)
+                                            ? Colors.white
+                                            : Colors.white38,
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            iconSize: 30,
-                            icon: const Icon(
-                              Icons.replay_10_rounded,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
-                              final current = audio.position;
-                              final target =
-                                  current - const Duration(seconds: 10);
-                              audio.seek(
-                                target < Duration.zero ? Duration.zero : target,
-                              );
-                            },
+                            ],
                           ),
-                          const SizedBox(width: 8),
 
-                          StreamBuilder<PlayerState>(
-                            stream: audio.playerStateStream,
-                            builder: (context, snapshot) {
-                              final isPlaying = audio.isPlaying;
-                              final notifier = ref.read(
-                                nowPlayingProvider.notifier,
-                              );
+                        const SizedBox(height: 24),
 
-                              return Container(
-                                width: 64,
-                                height: 64,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: IconButton(
-                                  iconSize: 38,
-                                  icon: Icon(
-                                    isPlaying
-                                        ? Icons.pause_rounded
-                                        : Icons.play_arrow_rounded,
-                                    color: Colors.black,
+                        Text(
+                          nowPlaying.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        if (nowPlaying.subtitle.isNotEmpty)
+                          Text(
+                            nowPlaying.subtitle,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              height: 1.4,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+
+                        const SizedBox(height: 24),
+
+                        StreamBuilder<Duration>(
+                          stream: audio.positionStream,
+                          initialData: audio.position,
+                          builder: (context, snapshot) {
+                            final pos = snapshot.data ?? Duration.zero;
+                            final effectiveDuration =
+                                duration.inMilliseconds > 0 ? duration : pos;
+
+                            final maxMs = effectiveDuration.inMilliseconds > 0
+                                ? effectiveDuration.inMilliseconds
+                                : 1;
+
+                            final valueMs = pos.inMilliseconds
+                                .clamp(0, maxMs)
+                                .toDouble();
+
+                            return Column(
+                              children: [
+                                SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    trackHeight: 2.5,
+                                    thumbShape: const RoundSliderThumbShape(
+                                      enabledThumbRadius: 7,
+                                    ),
                                   ),
-                                  onPressed: () async {
-                                    if (isPlaying) {
-                                      await notifier.pause();
-                                    } else {
-                                      await notifier.resume();
-                                    }
-                                  },
+                                  child: Slider(
+                                    value: valueMs,
+                                    max: maxMs.toDouble(),
+                                    onChanged: (v) {
+                                      audio.seek(
+                                        Duration(milliseconds: v.round()),
+                                      );
+                                    },
+                                  ),
                                 ),
-                              );
-                            },
-                          ),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _fmt(pos),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      _fmt(effectiveDuration),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
 
-                          const SizedBox(width: 8),
-                          IconButton(
-                            iconSize: 30,
+                        const SizedBox(height: 24),
+
+                        Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                iconSize: 30,
+                                icon: const Icon(
+                                  Icons.replay_10_rounded,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  final current = audio.position;
+                                  final target =
+                                      current - const Duration(seconds: 10);
+                                  audio.seek(
+                                    target < Duration.zero
+                                        ? Duration.zero
+                                        : target,
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 8),
+
+                              StreamBuilder<PlayerState>(
+                                stream: audio.playerStateStream,
+                                builder: (context, snapshot) {
+                                  final isPlaying = audio.isPlaying;
+                                  final notifier = ref.read(
+                                    nowPlayingProvider.notifier,
+                                  );
+
+                                  return Container(
+                                    width: 64,
+                                    height: 64,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: IconButton(
+                                      iconSize: 38,
+                                      icon: Icon(
+                                        isPlaying
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        color: Colors.black,
+                                      ),
+                                      onPressed: () async {
+                                        if (isPlaying) {
+                                          await notifier.pause();
+                                        } else {
+                                          await notifier.resume();
+                                        }
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+
+                              const SizedBox(width: 8),
+                              IconButton(
+                                iconSize: 30,
+                                icon: const Icon(
+                                  Icons.forward_10_rounded,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  final current = audio.position;
+                                  final d = audio.duration ?? Duration.zero;
+                                  final target =
+                                      current + const Duration(seconds: 10);
+                                  final clamped =
+                                      (d > Duration.zero && target > d)
+                                      ? d
+                                      : target;
+                                  audio.seek(clamped);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // ✅ STOP (siempre visible, con fallback real)
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () async {
+                              await ref
+                                  .read(nowPlayingProvider.notifier)
+                                  .clear();
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                              }
+                            },
                             icon: const Icon(
-                              Icons.forward_10_rounded,
-                              color: Colors.white,
+                              Icons.stop_rounded,
+                              color: Colors.white70,
                             ),
-                            onPressed: () {
-                              final current = audio.position;
-                              final d = audio.duration ?? Duration.zero;
-                              final target =
-                                  current + const Duration(seconds: 10);
-                              final clamped = (d > Duration.zero && target > d)
-                                  ? d
-                                  : target;
-                              audio.seek(clamped);
-                            },
+                            label: Text(
+                              stopLabel,
+                              style: const TextStyle(color: Colors.white70),
+                            ),
                           ),
+                        ),
+
+                        // ✅ DESCRIPCIÓN COMPLETA (como antes)
+                        if (descHtml.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          Text(
+                            descTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Html(data: descHtml),
                         ],
-                      ),
+
+                        const SizedBox(height: 24),
+                      ],
                     ),
-
-                    const SizedBox(height: 18),
-
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          await ref.read(nowPlayingProvider.notifier).clear();
-                          if (context.mounted) Navigator.of(context).pop();
-                        },
-                        icon: const Icon(
-                          Icons.stop_rounded,
-                          color: Colors.white70,
-                        ),
-                        label: const Text(
-                          'Detener audio',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                    ),
-
-                    if (descHtml.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Descripción',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Html(data: descHtml),
-                    ],
-
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
