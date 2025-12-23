@@ -1,9 +1,9 @@
-name: disfruta_antofagasta  
+name: disfruta_antofagasta
 description: "Museo RapaNui - Isla de Pascua"
 publish_to: 'none'
 
 # Nueva versión para App Store
-version: 1.0.9+5
+version: 1.1.1+1
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
@@ -78,12 +78,17 @@ flutter:
 # ===========================================
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
 
+  # ANDROID (se mantiene tal cual lo tenías)
   image_path_android: "assets/icons/mapse_launcher.png"
   adaptive_icon_background: "#FFFFFFFF"
   adaptive_icon_foreground: "assets/icons/mapse_launcher.png"
   min_sdk_android: 21
+
+  # iOS (NUEVO)
+  image_path_ios: "assets/icon_ios.png"
+  remove_alpha_ios: true
 
 # ===========================================
 # 🔥 SPLASH SCREEN
