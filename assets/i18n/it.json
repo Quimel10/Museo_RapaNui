@@ -1,60 +1,76 @@
 {
   "app": { "name": "Museo RapaNui" },
+
   "home": {
     "welcome": "Benvenuto!",
     "featured": "In evidenza",
-    "search": "Quale pezzo stai cercando?",
-    "no_featured": "Nessun pezzo in evidenza per ora.",
+    "search": "Quale opera stai cercando?",
+    "no_featured": "Al momento non ci sono opere in evidenza.",
     "info_banners": "Banner informativi",
-    "no_banners": "Nessun banner informativo per ora.",
-    "banner_load_error": "Non siamo riusciti a caricare i banner informativi. Riprova più tardi.",
-    "no_audio": "Questo pezzo non ha audio disponibile.",
-    "logout_tooltip": "Esci"
+    "no_banners": "Al momento non ci sono banner informativi.",
+    "banner_load_error": "Impossibile caricare i banner informativi. Riprova più tardi.",
+    "no_audio": "Questa opera non dispone di un’audioguida.",
+    "logout_tooltip": "Disconnetti"
   },
+
   "tabs": {
     "home": "Home",
     "scan": "Scansiona QR",
-    "pieces": "Pezzi",
-    "places": "Pezzi",
+    "pieces": "Opere",
+    "places": "Opere",
     "map": "Mappa",
     "favorites": "Preferiti",
     "search": "Cerca"
   },
+
   "pieces": {
-    "title": "Pezzi",
-    "search": "Quale pezzo cercare?"
+    "title": "Opere",
+    "search": "Quale opera stai cercando?"
   },
+
   "piece_detail": {
     "description_title": "Descrizione",
     "references_title": "Riferimenti:",
-    "images_title": "Immagini del pezzo",
+    "images_title": "Immagini dell’opera",
     "play_audio": "Riproduci audio",
-    "pause_audio": "Metti in pausa",
+    "pause_audio": "Pausa audio",
     "play_audio_button": "Riproduci audio",
     "playing_now": "In riproduzione",
     "paused": "In pausa",
     "tap_to_play": "Tocca per riprodurre",
-    "load_error": "Impossibile caricare il pezzo.",
-    "not_found": "Pezzo non trovato."
+    "load_error": "Impossibile caricare l’opera.",
+    "not_found": "Opera non trovata."
   },
+
   "player": {
     "play_audio": "Riproduci audio",
-    "pause_audio": "Metti in pausa",
+    "pause_audio": "Pausa audio",
     "loading_audio": "Caricamento audio...",
-    "audio_error": "Impossibile riprodurre l'audio."
+    "audio_error": "Impossibile riprodurre l’audio."
   },
+
   "actions": { "retry": "Riprova" },
+
   "errors": {
-    "place_not_loaded": "Impossibile caricare il pezzo.",
-    "place_not_found": "Pezzo non trovato."
+    "place_not_loaded": "Impossibile caricare l’opera.",
+    "place_not_found": "L’opera non è stata trovata."
   },
+
   "place": {
     "description": "Descrizione",
-    "images_of_piece": "Immagini del pezzo"
+    "images_of_piece": "Immagini dell’opera"
   },
+
   "scanner": {
     "invalid_title": "Codice non valido",
     "invalid_body": "Il QR letto non contiene un ID numerico: \"{code}\"",
     "close": "Chiudi"
+  },
+
+  "language_onboarding": {
+    "title": "Seleziona la lingua della tua visita al museo",
+    "subtitle": "Potrai cambiare la lingua in seguito dalla Home.",
+    "confirm": "Conferma",
+    "skip": "Ora no"
   }
 }

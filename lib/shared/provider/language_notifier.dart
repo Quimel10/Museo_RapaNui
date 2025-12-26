@@ -14,15 +14,8 @@ class LanguageNotifier extends StateNotifier<String> {
 
   static const _key = 'language';
 
-  // 🌍 Idiomas soportados (ACTUALIZADO)
-  static const supported = {
-    'es',
-    'en',
-    'pt',
-    'fr',
-    'it', // ✅ Italiano
-    'ja', // ✅ Japonés
-  };
+  // 🌍 Idiomas soportados
+  static const supported = {'es', 'en', 'pt', 'fr', 'it', 'ja'};
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -35,14 +28,17 @@ class LanguageNotifier extends StateNotifier<String> {
     }
   }
 
-  Future<void> setLanguage(
+  /// Cambia idioma y retorna true si realmente cambió (state anterior != nuevo).
+  Future<bool> setLanguage(
     BuildContext context,
     WidgetRef ref,
     String lang,
   ) async {
-    if (!supported.contains(lang)) {
-      // 🔒 seguridad extra: nunca setear un idioma inválido
-      return;
+    if (!supported.contains(lang)) return false;
+
+    // Si es el mismo idioma, no hagas nada.
+    if (state == lang && context.locale.languageCode == lang) {
+      return false;
     }
 
     final prefs = await SharedPreferences.getInstance();
@@ -53,7 +49,6 @@ class LanguageNotifier extends StateNotifier<String> {
     // ignore: use_build_context_synchronously
     await context.setLocale(Locale(lang));
 
-    // 👉 Si en el futuro necesitás refrescar data por idioma,
-    // este es el lugar correcto para hacerlo.
+    return true;
   }
 }

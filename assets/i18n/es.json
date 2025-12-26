@@ -1,7 +1,6 @@
 {
-  "app": {
-    "name": "Museo RapaNui"
-  },
+  "app": { "name": "Museo RapaNui" },
+
   "home": {
     "welcome": "¡Bienvenido!",
     "featured": "Destacados",
@@ -13,6 +12,7 @@
     "no_audio": "Esta pieza no tiene audio disponible.",
     "logout_tooltip": "Cerrar sesión"
   },
+
   "tabs": {
     "home": "Inicio",
     "scan": "Escanear QR",
@@ -22,10 +22,12 @@
     "favorites": "Favoritos",
     "search": "Buscar"
   },
+
   "pieces": {
     "title": "Piezas",
     "search": "¿Qué pieza buscar?"
   },
+
   "piece_detail": {
     "description_title": "Descripción",
     "references_title": "Referencias:",
@@ -39,26 +41,36 @@
     "load_error": "No se pudo cargar la pieza.",
     "not_found": "Pieza no encontrada."
   },
+
   "player": {
     "play_audio": "Reproducir audio",
     "pause_audio": "Pausar audio",
     "loading_audio": "Cargando audio...",
     "audio_error": "No se pudo reproducir el audio."
   },
-  "actions": {
-    "retry": "Reintentar"
-  },
+
+  "actions": { "retry": "Reintentar" },
+
   "errors": {
     "place_not_loaded": "No se pudo cargar la pieza.",
     "place_not_found": "La pieza no fue encontrada."
   },
+
   "place": {
     "description": "Descripción",
     "images_of_piece": "Imágenes de la pieza"
   },
+
   "scanner": {
     "invalid_title": "Código no válido",
     "invalid_body": "El QR leído no contiene un ID numérico: \"{code}\"",
     "close": "Cerrar"
+  },
+
+  "language_onboarding": {
+    "title": "Selecciona el idioma de tu visita al museo",
+    "subtitle": "Luego podrás cambiar el idioma desde Inicio.",
+    "confirm": "Confirmar",
+    "skip": "Ahora no"
   }
 }

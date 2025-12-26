@@ -3,7 +3,7 @@ description: "Museo RapaNui - Isla de Pascua"
 publish_to: 'none'
 
 # Nueva versión para App Store
-version: 1.1.1+1
+version: 1.1.2+2
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
@@ -66,6 +66,9 @@ flutter:
     - assets/icon_ios.png
     - assets/bg_portada.png
     - assets/icons/
+
+    # 🇺🇳 BANDERAS PARA SELECTOR DE IDIOMA
+    - assets/flags/
 
     # PDFs
     - assets/pdf/antofagasta-mapa-turistico-mobile-small.pdf

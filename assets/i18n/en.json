@@ -1,16 +1,18 @@
 {
-  "app": { "name": "Museo RapaNui" },
+  "app": { "name": "RapaNui Museum" },
+
   "home": {
     "welcome": "Welcome!",
     "featured": "Featured",
     "search": "Which piece are you looking for?",
-    "no_featured": "No featured pieces for now.",
-    "info_banners": "Info banners",
-    "no_banners": "No info banners for now.",
-    "banner_load_error": "We couldn't load the info banners. Please try again later.",
-    "no_audio": "This piece has no audio available.",
+    "no_featured": "There are no featured pieces at the moment.",
+    "info_banners": "Information banners",
+    "no_banners": "There are currently no information banners.",
+    "banner_load_error": "We couldn't load the information banners. Please try again later.",
+    "no_audio": "This piece does not have an audio guide available.",
     "logout_tooltip": "Log out"
   },
+
   "tabs": {
     "home": "Home",
     "scan": "Scan QR",
@@ -20,41 +22,55 @@
     "favorites": "Favorites",
     "search": "Search"
   },
+
   "pieces": {
     "title": "Pieces",
-    "search": "Which piece to search?"
+    "search": "Which piece are you looking for?"
   },
+
   "piece_detail": {
     "description_title": "Description",
     "references_title": "References:",
-    "images_title": "Piece images",
+    "images_title": "Images of the piece",
     "play_audio": "Play audio",
     "pause_audio": "Pause audio",
     "play_audio_button": "Play audio",
-    "playing_now": "Playing",
+    "playing_now": "Now playing",
     "paused": "Paused",
     "tap_to_play": "Tap to play",
-    "load_error": "Couldn't load the piece.",
+    "load_error": "The piece could not be loaded.",
     "not_found": "Piece not found."
   },
+
   "player": {
     "play_audio": "Play audio",
     "pause_audio": "Pause audio",
     "loading_audio": "Loading audio...",
-    "audio_error": "Couldn't play the audio."
+    "audio_error": "The audio could not be played."
   },
+
   "actions": { "retry": "Retry" },
+
   "errors": {
-    "place_not_loaded": "Couldn't load the piece.",
-    "place_not_found": "Piece was not found."
+    "place_not_loaded": "The piece could not be loaded.",
+    "place_not_found": "The piece was not found."
   },
+
   "place": {
     "description": "Description",
-    "images_of_piece": "Piece images"
+    "images_of_piece": "Images of the piece"
   },
+
   "scanner": {
     "invalid_title": "Invalid code",
-    "invalid_body": "The scanned QR does not contain a numeric ID: \"{code}\"",
+    "invalid_body": "The scanned QR code does not contain a numeric ID: \"{code}\"",
     "close": "Close"
+  },
+
+  "language_onboarding": {
+    "title": "Select the language for your museum visit",
+    "subtitle": "You can change the language later from Home.",
+    "confirm": "Confirm",
+    "skip": "Not now"
   }
 }

@@ -1,9 +1,11 @@
+// lib/features/places/presentation/screens/place_details_screen.dart
+import 'package:disfruta_antofagasta/features/places/presentation/state/place_provider.dart';
 import 'package:disfruta_antofagasta/features/places/presentation/widgets/full_screen_gallery.dart';
-import 'package:disfruta_antofagasta/shared/provider/dio_provider.dart';
+import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
 import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
 import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
 
-import 'package:dio/dio.dart';
+import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -20,72 +22,26 @@ class PlaceDetailsScreen extends ConsumerStatefulWidget {
 }
 
 class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
-  bool _loading = true;
-  String? _error;
-  Map<String, dynamic>? _place;
+  ProviderSubscription<String>? _langSub;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(_loadPlace);
-  }
 
-  Future<void> _loadPlace() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _place = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(placeProvider.notifier).placeDetails(widget.placeId);
     });
 
-    try {
-      final langCode = context.locale.languageCode;
+    _langSub = ref.listenManual<String>(languageProvider, (prev, next) {
+      ref.read(placeProvider.notifier).placeDetails(widget.placeId);
+    });
+  }
 
-      // ✅ Provider correcto en tu proyecto
-      final dio = ref.read(dioProvider);
-
-      debugPrint(
-        '📍 [PlaceDetails] GET /get_punto id=${widget.placeId} lang=$langCode',
-      );
-
-      final resp = await dio.get(
-        '/get_punto',
-        queryParameters: {'post_id': widget.placeId, 'lang': langCode},
-        options: Options(
-          sendTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 25),
-        ),
-      );
-
-      if (!mounted) return;
-
-      final data = resp.data;
-      if (data is! Map) {
-        setState(() {
-          _error = tr('piece_detail.load_error');
-          _loading = false;
-        });
-        return;
-      }
-
-      setState(() {
-        _place = Map<String, dynamic>.from(data as Map);
-        _loading = false;
-      });
-    } on DioException catch (e, st) {
-      debugPrint('❌ [PlaceDetails] DioException: ${e.message}\n$st');
-      if (!mounted) return;
-      setState(() {
-        _error = tr('piece_detail.load_error');
-        _loading = false;
-      });
-    } catch (e, st) {
-      debugPrint('❌ [PlaceDetails] ERROR: $e\n$st');
-      if (!mounted) return;
-      setState(() {
-        _error = tr('piece_detail.load_error');
-        _loading = false;
-      });
-    }
+  @override
+  void dispose() {
+    _langSub?.close();
+    super.dispose();
   }
 
   String _format(Duration d) {
@@ -101,16 +57,25 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator()),
+    final placeState = ref.watch(placeProvider);
+
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    final bool isLoading = placeState.isLoadingPlaceDetails == true;
+    final String? error = placeState.errorMessage;
+    final PlaceEntity? place = placeState.placeDetails;
+
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    if (_error != null || _place == null) {
+    if (place == null || error != null) {
       return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
           child: Center(
             child: Padding(
@@ -119,15 +84,19 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _error ?? tr('piece_detail.not_found'),
-                    style: const TextStyle(color: Colors.white),
+                    error ?? tr('piece_detail.not_found'),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onBackground,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton(
-                    onPressed: _loadPlace,
+                    onPressed: () => ref
+                        .read(placeProvider.notifier)
+                        .placeDetails(widget.placeId),
                     child: Text(
-                      tr('common.retry', args: []).toString().isEmpty
+                      tr('common.retry') == 'common.retry'
                           ? 'Reintentar'
                           : tr('common.retry'),
                     ),
@@ -140,29 +109,37 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
       );
     }
 
-    final place = _place!;
-    final String titulo = (place['titulo'] ?? '') as String;
-    final String tipo = (place['tipo'] ?? '') as String;
+    final p = place;
 
-    final String heroImage =
-        (place['imagen_high'] ?? place['imagen'] ?? '') as String;
+    final String titulo = p.titulo.toString();
+    final String tipo = p.tipo.toString();
+
+    final String imagenHigh = p.imagenHigh.toString();
+    final String imagen = p.imagen.toString();
+    final String heroImage = (imagenHigh.trim().isNotEmpty)
+        ? imagenHigh.trim()
+        : imagen.trim();
 
     final String descHtml =
-        (place['desc_larga_html'] ?? place['desc_larga'] ?? '') as String;
+        (p.descLargaHtml?.toString().trim().isNotEmpty == true)
+        ? p.descLargaHtml!.toString()
+        : (p.descLarga?.toString() ?? '');
 
-    final String? audioUrlRaw = (place['audio'] as String?)?.trim();
-    final String? audioUrl = (audioUrlRaw == null || audioUrlRaw.isEmpty)
-        ? null
-        : audioUrlRaw;
+    final String? audioUrl = (p.audio?.toString().trim().isNotEmpty == true)
+        ? p.audio!.toString().trim()
+        : null;
 
-    final List<String> gallery = ((place['img_medium'] as List<dynamic>?) ?? [])
-        .map((e) => e.toString())
-        .where(
-          (url) =>
-              url.isNotEmpty &&
-              (url.startsWith('http://') || url.startsWith('https://')),
-        )
-        .toList();
+    final List<String> gallery =
+        ((p.imgMedium as dynamic) is List
+                ? List<dynamic>.from(p.imgMedium as dynamic)
+                : const <dynamic>[])
+            .map((e) => e.toString())
+            .where(
+              (url) =>
+                  url.isNotEmpty &&
+                  (url.startsWith('http://') || url.startsWith('https://')),
+            )
+            .toList();
 
     final audio = ref.watch(audioPlayerProvider);
 
@@ -177,21 +154,23 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
       'Tocar para reproducir',
     );
 
-    // ✅ espacio para que el contenido no quede tapado por mini + bottom nav
     final bottomSafe = MediaQuery.of(context).padding.bottom;
     const navApprox = 56.0;
     const miniApprox = 74.0;
     const extra = 18.0;
     final bottomSpacer = bottomSafe + navApprox + miniApprox + extra;
 
+    final cardBg = cs.surface;
+    final cardBorder = cs.outline.withOpacity(0.6);
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            backgroundColor: Colors.black,
+            backgroundColor: theme.scaffoldBackgroundColor,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: Icon(Icons.arrow_back, color: cs.onBackground),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
             expandedHeight: 260,
@@ -199,7 +178,7 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
             flexibleSpace: FlexibleSpaceBar(
               background: heroImage.isNotEmpty
                   ? Image.network(heroImage, fit: BoxFit.cover)
-                  : Container(color: Colors.black12),
+                  : Container(color: cs.surfaceVariant),
             ),
           ),
           SliverToBoxAdapter(
@@ -210,15 +189,14 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                 children: [
                   Text(
                     titulo,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: cs.onBackground,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 12),
 
-                  if (tipo.isNotEmpty)
+                  if (tipo.trim().isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -226,42 +204,40 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white24),
-                        color: Colors.white.withOpacity(0.06),
+                        border: Border.all(color: cardBorder),
+                        color: cs.surfaceVariant,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.place,
                             size: 16,
-                            color: Colors.white70,
+                            color: cs.onSurfaceVariant,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             tipo,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                  // ✅ REPRODUCTOR PRO (con progreso + tiempos, sin azul)
                   if (audioUrl != null) ...[
                     const SizedBox(height: 24),
-
                     StreamBuilder<PlayerState>(
                       stream: audio.playerStateStream,
                       builder: (context, snapshot) {
                         final nowPlaying = ref.watch(nowPlayingProvider);
+                        final notifier = ref.read(nowPlayingProvider.notifier);
 
                         final bool isThisActive =
                             (nowPlaying.url ?? '') == audioUrl;
                         final bool isThisPlaying =
-                            isThisActive && audio.isPlaying;
+                            isThisActive && nowPlaying.isPlaying;
 
                         final Duration duration = isThisActive
                             ? (audio.duration ?? Duration.zero)
@@ -271,14 +247,12 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                             ? audio.position
                             : Duration.zero;
 
-                        final notifier = ref.read(nowPlayingProvider.notifier);
-
                         return Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.06),
+                            color: cardBg,
                             borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: Colors.white12),
+                            border: Border.all(color: cardBorder),
                           ),
                           child: Column(
                             children: [
@@ -288,9 +262,9 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                     width: 46,
                                     height: 46,
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.08),
+                                      color: cs.surfaceVariant,
                                       borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(color: Colors.white12),
+                                      border: Border.all(color: cardBorder),
                                     ),
                                     child: IconButton(
                                       iconSize: 26,
@@ -298,35 +272,33 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                         isThisPlaying
                                             ? Icons.pause_rounded
                                             : Icons.play_arrow_rounded,
-                                        color: Colors.white,
+                                        color: cs.onSurface,
                                       ),
-                                      onPressed: () async {
-                                        final current = ref.read(
-                                          nowPlayingProvider,
-                                        );
-                                        final activeNow =
-                                            (current.url ?? '') == audioUrl;
+                                      onPressed: nowPlaying.isBusy
+                                          ? null
+                                          : () async {
+                                              final current = ref.read(
+                                                nowPlayingProvider,
+                                              );
+                                              final activeNow =
+                                                  (current.url ?? '') ==
+                                                  audioUrl;
 
-                                        if (!activeNow) {
-                                          await notifier.playFromUrl(
-                                            url: audioUrl,
-                                            title: titulo,
-                                            subtitle: tipo,
-                                            placeId: int.tryParse(
-                                              widget.placeId,
-                                            ),
-                                            imageUrl: heroImage,
-                                            descriptionHtml: descHtml,
-                                          );
-                                          return;
-                                        }
+                                              if (!activeNow) {
+                                                await notifier.playFromUrl(
+                                                  url: audioUrl,
+                                                  title: titulo,
+                                                  subtitle: tipo,
+                                                  placeId: p.id,
+                                                  place: p,
+                                                  imageUrl: heroImage,
+                                                  descriptionHtml: descHtml,
+                                                );
+                                                return;
+                                              }
 
-                                        if (audio.isPlaying) {
-                                          await notifier.pause();
-                                        } else {
-                                          await notifier.resume();
-                                        }
-                                      },
+                                              await notifier.toggle();
+                                            },
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -337,11 +309,11 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                       children: [
                                         Text(
                                           playLabel,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                color: cs.onSurface,
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
@@ -350,20 +322,17 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                                     ? playingLabel
                                                     : pausedLabel)
                                               : tapToPlayLabel,
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 13,
-                                          ),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: cs.onSurfaceVariant,
+                                              ),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
-
                               const SizedBox(height: 14),
-
-                              // ✅ Slider sin azul
                               SliderTheme(
                                 data: SliderTheme.of(context).copyWith(
                                   trackHeight: 3,
@@ -373,10 +342,12 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                   overlayShape: const RoundSliderOverlayShape(
                                     overlayRadius: 14,
                                   ),
-                                  activeTrackColor: Colors.white,
-                                  inactiveTrackColor: Colors.white24,
-                                  thumbColor: Colors.white,
-                                  overlayColor: Colors.white24,
+                                  activeTrackColor: cs.onSurface,
+                                  inactiveTrackColor: cs.onSurface.withOpacity(
+                                    0.25,
+                                  ),
+                                  thumbColor: cs.onSurface,
+                                  overlayColor: cs.onSurface.withOpacity(0.12),
                                 ),
                                 child: Slider(
                                   value: duration.inMilliseconds == 0
@@ -388,30 +359,28 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                   max: duration.inMilliseconds == 0
                                       ? 1
                                       : duration.inMilliseconds.toDouble(),
-                                  onChanged: isThisActive
-                                      ? (v) => audio.seek(
+                                  onChanged:
+                                      (!isThisActive || nowPlaying.isBusy)
+                                      ? null
+                                      : (v) => audio.seek(
                                           Duration(milliseconds: v.round()),
-                                        )
-                                      : null,
+                                        ),
                                 ),
                               ),
-
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     _format(position),
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
                                     ),
                                   ),
                                   Text(
                                     _format(duration),
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -426,23 +395,50 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                   const SizedBox(height: 28),
                   Text(
                     tr('piece_detail.description_title'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: cs.onBackground,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Html(data: descHtml),
+
+                  // ✅ FIX: estilos sin style.dart (compat con flutter_html 3.0.0)
+                  Html(
+                    data: descHtml,
+                    style: {
+                      "body": Style(
+                        margin: Margins.zero,
+                        padding: HtmlPaddings.zero,
+                        color: cs.onBackground,
+                        fontSize: FontSize(16),
+                        lineHeight: LineHeight.number(1.55),
+                      ),
+                      "p": Style(
+                        color: cs.onBackground,
+                        fontSize: FontSize(16),
+                        lineHeight: LineHeight.number(1.55),
+                      ),
+                      "li": Style(
+                        color: cs.onBackground,
+                        fontSize: FontSize(16),
+                        lineHeight: LineHeight.number(1.55),
+                      ),
+                      "strong": Style(color: cs.onBackground),
+                      "em": Style(color: cs.onBackground),
+                      "a": Style(
+                        color: cs.primary,
+                        textDecoration: TextDecoration.underline,
+                      ),
+                    },
+                  ),
 
                   const SizedBox(height: 28),
 
                   if (gallery.isNotEmpty) ...[
                     Text(
                       tr('piece_detail.images_title'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: cs.onBackground,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

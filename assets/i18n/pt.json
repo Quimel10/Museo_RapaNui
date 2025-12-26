@@ -1,16 +1,18 @@
 {
-  "app": { "name": "Museo RapaNui" },
+  "app": { "name": "Museu RapaNui" },
+
   "home": {
     "welcome": "Bem-vindo!",
     "featured": "Destaques",
     "search": "Qual peça você procura?",
     "no_featured": "Não há peças em destaque no momento.",
     "info_banners": "Banners informativos",
-    "no_banners": "Não há banners informativos no momento.",
+    "no_banners": "No momento não há banners informativos.",
     "banner_load_error": "Não foi possível carregar os banners informativos. Tente novamente mais tarde.",
-    "no_audio": "Esta peça não tem áudio disponível.",
-    "logout_tooltip": "Sair"
+    "no_audio": "Esta peça não possui áudio disponível.",
+    "logout_tooltip": "Encerrar sessão"
   },
+
   "tabs": {
     "home": "Início",
     "scan": "Escanear QR",
@@ -20,10 +22,12 @@
     "favorites": "Favoritos",
     "search": "Buscar"
   },
+
   "pieces": {
     "title": "Peças",
-    "search": "Qual peça buscar?"
+    "search": "Qual peça você procura?"
   },
+
   "piece_detail": {
     "description_title": "Descrição",
     "references_title": "Referências:",
@@ -37,24 +41,36 @@
     "load_error": "Não foi possível carregar a peça.",
     "not_found": "Peça não encontrada."
   },
+
   "player": {
     "play_audio": "Reproduzir áudio",
     "pause_audio": "Pausar áudio",
     "loading_audio": "Carregando áudio...",
     "audio_error": "Não foi possível reproduzir o áudio."
   },
+
   "actions": { "retry": "Tentar novamente" },
+
   "errors": {
     "place_not_loaded": "Não foi possível carregar a peça.",
     "place_not_found": "A peça não foi encontrada."
   },
+
   "place": {
     "description": "Descrição",
     "images_of_piece": "Imagens da peça"
   },
+
   "scanner": {
     "invalid_title": "Código inválido",
     "invalid_body": "O QR lido não contém um ID numérico: \"{code}\"",
     "close": "Fechar"
+  },
+
+  "language_onboarding": {
+    "title": "Selecione o idioma da sua visita ao museu",
+    "subtitle": "Você poderá alterar o idioma depois na tela Inicial.",
+    "confirm": "Confirmar",
+    "skip": "Agora não"
   }
 }

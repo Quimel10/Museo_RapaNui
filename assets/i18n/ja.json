@@ -1,60 +1,76 @@
 {
-  "app": { "name": "Museo RapaNui" },
+  "app": { "name": "ラパ・ヌイ博物館" },
+
   "home": {
     "welcome": "ようこそ！",
-    "featured": "注目",
-    "search": "どの作品を探していますか？",
-    "no_featured": "現在、注目の作品はありません。",
-    "info_banners": "お知らせバナー",
-    "no_banners": "現在、お知らせバナーはありません。",
-    "banner_load_error": "お知らせバナーを読み込めませんでした。後でもう一度お試しください。",
-    "no_audio": "この作品には音声がありません。",
+    "featured": "注目の展示",
+    "search": "どの展示品をお探しですか？",
+    "no_featured": "現在、注目の展示品はありません。",
+    "info_banners": "インフォメーション",
+    "no_banners": "現在、インフォメーションはありません。",
+    "banner_load_error": "インフォメーションを読み込めませんでした。後ほど再度お試しください。",
+    "no_audio": "この展示品には音声ガイドがありません。",
     "logout_tooltip": "ログアウト"
   },
+
   "tabs": {
     "home": "ホーム",
     "scan": "QRスキャン",
-    "pieces": "作品",
-    "places": "作品",
-    "map": "地図",
+    "pieces": "展示品",
+    "places": "展示品",
+    "map": "マップ",
     "favorites": "お気に入り",
     "search": "検索"
   },
+
   "pieces": {
-    "title": "作品",
-    "search": "どの作品を検索しますか？"
+    "title": "展示品",
+    "search": "どの展示品をお探しですか？"
   },
+
   "piece_detail": {
     "description_title": "説明",
-    "references_title": "参考：",
-    "images_title": "作品の画像",
+    "references_title": "参考資料：",
+    "images_title": "展示品の画像",
     "play_audio": "音声を再生",
-    "pause_audio": "一時停止",
+    "pause_audio": "音声を一時停止",
     "play_audio_button": "音声を再生",
     "playing_now": "再生中",
-    "paused": "停止中",
+    "paused": "一時停止中",
     "tap_to_play": "タップして再生",
-    "load_error": "作品を読み込めませんでした。",
-    "not_found": "作品が見つかりません。"
+    "load_error": "展示品を読み込めませんでした。",
+    "not_found": "展示品が見つかりません。"
   },
+
   "player": {
     "play_audio": "音声を再生",
-    "pause_audio": "一時停止",
+    "pause_audio": "音声を一時停止",
     "loading_audio": "音声を読み込み中...",
     "audio_error": "音声を再生できませんでした。"
   },
+
   "actions": { "retry": "再試行" },
+
   "errors": {
-    "place_not_loaded": "作品を読み込めませんでした。",
-    "place_not_found": "作品が見つかりません。"
+    "place_not_loaded": "展示品を読み込めませんでした。",
+    "place_not_found": "展示品が見つかりませんでした。"
   },
+
   "place": {
     "description": "説明",
-    "images_of_piece": "作品の画像"
+    "images_of_piece": "展示品の画像"
   },
+
   "scanner": {
     "invalid_title": "無効なコード",
-    "invalid_body": "読み取ったQRに数値IDが含まれていません: \"{code}\"",
+    "invalid_body": "読み取ったQRコードに数値IDが含まれていません: \"{code}\"",
     "close": "閉じる"
+  },
+
+  "language_onboarding": {
+    "title": "博物館の訪問言語を選択してください",
+    "subtitle": "後からホーム画面で言語を変更できます。",
+    "confirm": "確認",
+    "skip": "後で"
   }
 }

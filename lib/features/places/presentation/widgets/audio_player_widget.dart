@@ -9,14 +9,8 @@ import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
 class AudioPlayerWidget extends ConsumerWidget {
   final String audioUrl;
   final String title;
-
-  /// Opcional: si tenés la pieza completa, mejor (para que el mini-player tenga imagen, id, etc.)
   final PlaceEntity? place;
-
-  /// Opcional: subtítulo
   final String subtitle;
-
-  /// ✅ NUEVO: portada y descripción (cuando NO tenemos PlaceEntity)
   final String? imageUrl;
   final String? descriptionHtml;
 
@@ -31,49 +25,52 @@ class AudioPlayerWidget extends ConsumerWidget {
   });
 
   String _format(Duration d) {
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final nowPlaying = ref.watch(nowPlayingProvider);
     final audio = ref.watch(audioPlayerProvider);
+    final notifier = ref.read(nowPlayingProvider.notifier);
 
     final url = audioUrl.trim();
-
     if (url.isEmpty) {
       return Text(
         tr('player.audio_error'),
-        style: const TextStyle(color: Colors.white70, fontSize: 14),
+        style: const TextStyle(color: Colors.white70),
       );
     }
 
-    final bool isThisTrackActive = (nowPlaying.url ?? '') == url;
+    final bool isActive = (nowPlaying.url ?? '') == url;
+    final bool isPlaying = isActive && nowPlaying.isPlaying;
+    final bool disabled = nowPlaying.isBusy;
 
-    // ✅ CLAVE: el estado visual NO viene de audio.isPlaying, viene del estado global sincronizado
-    final bool isPlayingThis = isThisTrackActive && nowPlaying.isPlaying;
+    Future<void> onTap() async {
+      if (disabled) return;
 
-    Future<void> onToggle() async {
-      final notifier = ref.read(nowPlayingProvider.notifier);
-
-      // Si no es el track actual, lo cargamos y reproducimos
-      if (!isThisTrackActive) {
-        await notifier.playFromUrl(
-          url: url,
-          title: title,
-          subtitle: subtitle.isNotEmpty ? subtitle : (place?.descCorta ?? ''),
-          placeId: place?.id,
-          place: place,
-          imageUrl: imageUrl,
-          descriptionHtml: descriptionHtml,
-        );
-        return;
+      if (place != null) {
+        // 🔥 CASO IDEAL
+        await notifier.toggleFor(place!);
+      } else {
+        // fallback sin PlaceEntity
+        if (!isActive) {
+          await notifier.playFromPlace(
+            _FakePlace(
+              id: null,
+              titulo: title,
+              descCorta: subtitle,
+              audio: url,
+              imagen: imageUrl,
+              descripcionHtml: descriptionHtml,
+            ),
+          );
+        } else {
+          await notifier.togglePlayPause();
+        }
       }
-
-      // ✅ Si es el track actual: SIEMPRE toggle (misma lógica que mini-player)
-      await notifier.toggle();
     }
 
     return Column(
@@ -81,109 +78,73 @@ class AudioPlayerWidget extends ConsumerWidget {
       children: [
         InkWell(
           borderRadius: BorderRadius.circular(32),
-          onTap: onToggle,
+          onTap: disabled ? null : onTap,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: Icon(
-                  isPlayingThis ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 28,
+              Opacity(
+                opacity: disabled ? 0.5 : 1,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Icon(
+                    isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Text(
-                isPlayingThis
-                    ? tr('player.pause_audio')
-                    : tr('player.play_audio'),
-                style: const TextStyle(
-                  color: Colors.white,
+                isPlaying ? tr('player.pause_audio') : tr('player.play_audio'),
+                style: TextStyle(
+                  color: disabled ? Colors.white54 : Colors.white,
                   fontSize: 16,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
-
+        const SizedBox(height: 10),
         StreamBuilder<Duration>(
           stream: audio.positionStream,
           initialData: audio.position,
-          builder: (context, snapPos) {
-            final pos = isThisTrackActive
-                ? (snapPos.data ?? Duration.zero)
+          builder: (_, snap) {
+            final pos = isActive ? snap.data ?? Duration.zero : Duration.zero;
+            final dur = isActive
+                ? audio.duration ?? Duration.zero
                 : Duration.zero;
-
-            final dur = isThisTrackActive
-                ? (audio.duration ?? Duration.zero)
-                : Duration.zero;
-
-            final totalMs = dur.inMilliseconds.clamp(1, 24 * 60 * 60 * 1000);
-            final posMs = pos.inMilliseconds.clamp(0, totalMs);
 
             return Column(
               children: [
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 3,
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 6,
-                    ),
-                  ),
-                  child: Slider(
-                    min: 0,
-                    max: totalMs.toDouble(),
-                    value: posMs.toDouble(),
-                    onChanged: (v) async {
-                      final newPos = Duration(milliseconds: v.toInt());
-                      final notifier = ref.read(nowPlayingProvider.notifier);
-
-                      // Si no está activo, primero lo activamos y luego seek
-                      if (!isThisTrackActive) {
-                        await notifier.playFromUrl(
-                          url: url,
-                          title: title,
-                          subtitle: subtitle.isNotEmpty
-                              ? subtitle
-                              : (place?.descCorta ?? ''),
-                          placeId: place?.id,
-                          place: place,
-                          imageUrl: imageUrl,
-                          descriptionHtml: descriptionHtml,
-                        );
-                        await audio.seek(newPos);
-                      } else {
-                        await audio.seek(newPos);
-                      }
-                    },
-                    activeColor: Colors.white,
-                    inactiveColor: Colors.white24,
-                  ),
+                Slider(
+                  value: pos.inMilliseconds
+                      .clamp(
+                        0,
+                        dur.inMilliseconds == 0 ? 1 : dur.inMilliseconds,
+                      )
+                      .toDouble(),
+                  max: dur.inMilliseconds == 0
+                      ? 1
+                      : dur.inMilliseconds.toDouble(),
+                  onChanged: disabled
+                      ? null
+                      : (v) => audio.seek(Duration(milliseconds: v.toInt())),
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       _format(pos),
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: Colors.white54),
                     ),
                     Text(
                       _format(dur),
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: Colors.white54),
                     ),
                   ],
                 ),
@@ -194,4 +155,24 @@ class AudioPlayerWidget extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// 🔧 fallback interno SOLO para cuando no hay PlaceEntity
+class _FakePlace implements PlaceEntity {
+  @override
+  final int? id;
+  final String titulo;
+  final String descCorta;
+  final String audio;
+  final String? imagen;
+  final String? descripcionHtml;
+
+  _FakePlace({
+    required this.id,
+    required this.titulo,
+    required this.descCorta,
+    required this.audio,
+    this.imagen,
+    this.descripcionHtml,
+  });
 }
