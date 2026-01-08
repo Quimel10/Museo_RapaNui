@@ -1,3 +1,4 @@
+// lib/features/auth/infrastructure/repositories/auth_repository_impl.dart
 import 'package:disfruta_antofagasta/features/auth/domain/datasources/auth_datasource.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/auth.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/check_auth.dart';
@@ -9,11 +10,12 @@ import 'package:disfruta_antofagasta/features/auth/domain/repositories/auth_repo
 class AuthRepositoryImpl extends AuthRepository {
   final AuthDataSource dataSource;
 
+  // ✅ FIX: constructor nombrado para que calce con: AuthRepositoryImpl(dataSource: ds)
   AuthRepositoryImpl({required this.dataSource});
 
   @override
   Future<Map<String, String>> forgot(String email) {
-    throw UnimplementedError();
+    return dataSource.forgot(email);
   }
 
   @override
@@ -23,16 +25,19 @@ class AuthRepositoryImpl extends AuthRepository {
     int? regionId,
     String? device,
     int? age,
-    int? daysStay, // 👈 mismo nombre que en el abstract
-  }) {
-    return dataSource.guest(
+    int? daysStay,
+    String? visitorType,
+  }) async {
+    final auth = await dataSource.guest(
       name: name,
       countryCode: countryCode,
       regionId: regionId,
       device: device,
       age: age,
-      daysStay: daysStay, // 👈 pasa tal cual al datasource
+      daysStay: daysStay,
+      visitorType: visitorType,
     );
+    return auth;
   }
 
   @override
@@ -42,7 +47,7 @@ class AuthRepositoryImpl extends AuthRepository {
 
   @override
   Future<void> logout(String token) {
-    throw UnimplementedError();
+    return dataSource.logout(token);
   }
 
   @override
@@ -52,7 +57,7 @@ class AuthRepositoryImpl extends AuthRepository {
 
   @override
   Future<Auth?> reset(String email, String password) {
-    throw UnimplementedError();
+    return dataSource.reset(email, password);
   }
 
   @override
@@ -67,12 +72,12 @@ class AuthRepositoryImpl extends AuthRepository {
 
   @override
   Future<List<Country>> countries() {
-    return dataSource.countries();
+    return dataSource.countries(cancelToken: null);
   }
 
   @override
   Future<List<Region>> regions(int countryId) {
-    return dataSource.regions(countryId);
+    return dataSource.regions(countryId, cancelToken: null);
   }
 
   @override

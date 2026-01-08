@@ -17,8 +17,13 @@ class _GuestFormState extends ConsumerState<GuestForm> {
   @override
   void initState() {
     super.initState();
-    // Carga países una sola vez
     Future.microtask(() => ref.read(guestFormProvider.notifier).bootstrap());
+  }
+
+  Future<void> _submit() async {
+    final s0 = ref.read(guestFormProvider);
+    if (!s0.canSubmit || s0.isPosting) return;
+    await ref.read(guestFormProvider.notifier).submit();
   }
 
   @override
@@ -26,10 +31,16 @@ class _GuestFormState extends ConsumerState<GuestForm> {
     final s = ref.watch(guestFormProvider);
     final n = ref.read(guestFormProvider.notifier);
 
+    final hasCountry = s.selectedCountry != null;
+
+    // ✅ Regla nueva: Región SOLO si el país lo requiere
+    final showRegion = hasCountry && s.needsRegion;
+
+    final regionEnabled = showRegion && !s.isPosting && !s.isLoadingRegions;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Nombre
         TextFormField(
           style: const TextStyle(color: Colors.black),
           initialValue: s.name,
@@ -45,7 +56,6 @@ class _GuestFormState extends ConsumerState<GuestForm> {
         ),
         const SizedBox(height: 12),
 
-        // Edad (> 1 y <= 120)
         TextFormField(
           style: const TextStyle(color: Colors.black),
           initialValue: s.age?.toString() ?? '',
@@ -72,7 +82,6 @@ class _GuestFormState extends ConsumerState<GuestForm> {
         ),
         const SizedBox(height: 12),
 
-        // Días de visita (> 0 y <= 365)
         TextFormField(
           style: const TextStyle(color: Colors.black),
           initialValue: s.stay?.toString() ?? '',
@@ -99,50 +108,75 @@ class _GuestFormState extends ConsumerState<GuestForm> {
         ),
         const SizedBox(height: 12),
 
-        // País
+        // ✅ País
         DropdownButtonFormField<Country>(
-          initialValue: s.selectedCountry,
+          value: s.selectedCountry,
           isExpanded: true,
           dropdownColor: Colors.white,
-          iconEnabledColor: Colors.black45,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.black87,
+          ),
+          iconEnabledColor: Colors.black87,
+          iconDisabledColor: Colors.black38,
           style: const TextStyle(color: Colors.black),
-          hint: const Text('País', style: TextStyle(color: Colors.black54)),
+          hint: Text(
+            s.isLoadingCountries ? 'Cargando países…' : 'País',
+            style: const TextStyle(color: Colors.black54),
+          ),
           decoration: _glassInput(
             'País',
             prefix: const Icon(Icons.public_outlined),
+            suffix: s.isLoadingCountries
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
           ),
           items: s.countries
               .map(
                 (c) => DropdownMenuItem(
                   value: c,
                   child: Text(
-                    '${c.name} ',
+                    c.name,
                     style: const TextStyle(color: Colors.black87),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               )
               .toList(),
-          onChanged: s.isLoadingCountries ? null : n.countryChanged,
+          onChanged: (s.isPosting || s.isLoadingCountries)
+              ? null
+              : n.countryChanged,
         ),
-        if (s.isLoadingCountries)
-          const Padding(
-            padding: EdgeInsets.only(top: 8.0),
-            child: LinearProgressIndicator(minHeight: 2),
-          ),
-        const SizedBox(height: 12),
 
-        // Región (solo si el país lo requiere)
-        if (s.needsRegion) ...[
+        // ✅ Región SOLO si aplica (Chile/Perú). Si Argentina -> no se renderiza.
+        if (showRegion) ...[
+          const SizedBox(height: 12),
           DropdownButtonFormField<int>(
-            initialValue: s.selectedRegionId,
+            value: s.selectedRegionId,
             isExpanded: true,
             dropdownColor: Colors.white,
-            iconEnabledColor: Colors.black45,
+            icon: const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Colors.black87,
+            ),
+            iconEnabledColor: Colors.black87,
+            iconDisabledColor: Colors.black38,
             style: const TextStyle(color: Colors.black),
             hint: const Text('Región', style: TextStyle(color: Colors.black54)),
             decoration: _glassInput(
               'Región',
               prefix: const Icon(Icons.map_outlined),
+              suffix: (s.isLoadingRegions)
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
             ),
             items: s.regions
                 .map(
@@ -151,26 +185,74 @@ class _GuestFormState extends ConsumerState<GuestForm> {
                     child: Text(
                       r.name,
                       style: const TextStyle(color: Colors.black87),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 )
                 .toList(),
-            onChanged: s.isLoadingRegions ? null : n.regionChanged,
+            onChanged: regionEnabled ? n.regionChanged : null,
           ),
-          if (s.isLoadingRegions)
-            const Padding(
-              padding: EdgeInsets.only(top: 8.0),
-              child: LinearProgressIndicator(minHeight: 2),
-            ),
-          const SizedBox(height: 12),
         ],
+
+        const SizedBox(height: 12),
+
+        // ✅ Tipo de visitante (queda abajo del País o abajo de Región si existe)
+        DropdownButtonFormField<String>(
+          value: s.visitorType,
+          isExpanded: true,
+          dropdownColor: Colors.white,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.black87,
+          ),
+          iconEnabledColor: Colors.black87,
+          iconDisabledColor: Colors.black38,
+          style: const TextStyle(color: Colors.black),
+          hint: const Text(
+            'Tipo de visitante',
+            style: TextStyle(color: Colors.black54),
+          ),
+          decoration: _glassInput(
+            'Tipo de visitante',
+            prefix: const Icon(Icons.badge_outlined),
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: 'rapanui',
+              child: Text(
+                'Local (RapaNui)',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'continental',
+              child: Text(
+                'Continental',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'foreign',
+              child: Text(
+                'Extranjero',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+          ],
+          onChanged: s.isPosting
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  n.visitorTypeChanged(v);
+                },
+        ),
+        const SizedBox(height: 12),
 
         if (s.error != null) ...[
           Text(s.error!, style: const TextStyle(color: Colors.red)),
           const SizedBox(height: 8),
         ],
 
-        // 🔴 Botón "Entrar como invitado" vinotinto
         SizedBox(
           height: 52,
           child: ElevatedButton(
@@ -185,7 +267,7 @@ class _GuestFormState extends ConsumerState<GuestForm> {
                 fontSize: 18,
               ),
             ),
-            onPressed: s.canSubmit ? n.submit : null,
+            onPressed: (s.canSubmit && !s.isPosting) ? _submit : null,
             child: Text(s.isPosting ? 'Entrando…' : 'Entrar como invitado'),
           ),
         ),

@@ -1,6 +1,9 @@
+// lib/features/auth/presentation/state/register/register_state.dart
 import 'package:disfruta_antofagasta/features/auth/domain/entities/country.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/region.dart';
 
+/// Valores esperados:
+/// "rapanui" | "continental" | "foreign"
 class RegisterFormState {
   // existentes
   final String name, lastName, country, email, password;
@@ -8,7 +11,7 @@ class RegisterFormState {
   final bool accept, isPosting;
   final String? error;
 
-  // 👈 nuevo
+  // catálogos
   final List<Country> countries;
   final List<Region> regions;
   final Country? selectedCountry;
@@ -16,10 +19,13 @@ class RegisterFormState {
   final bool isLoadingCountries;
   final bool isLoadingRegions;
 
+  /// ✅ NUEVO: tipo de visitante
+  final String? visitorType;
+
   const RegisterFormState({
     this.name = '',
     this.lastName = '',
-    this.country = '', // puedes dejarlo, pero ya no lo usamos para enviar
+    this.country = '',
     this.region,
     this.age,
     this.email = '',
@@ -29,29 +35,31 @@ class RegisterFormState {
     this.isPosting = false,
     this.error,
 
-    // 👈 nuevo
     this.countries = const [],
     this.regions = const [],
     this.selectedCountry,
     this.selectedRegionId,
     this.isLoadingCountries = false,
     this.isLoadingRegions = false,
+
+    // ✅ nuevo
+    this.visitorType,
   });
 
+  // payload
+  String? get countryCode => selectedCountry?.code;
+
+  bool get needsRegion => (selectedCountry?.regionsCount ?? 0) > 1;
+
   bool get isValid =>
-      name.isNotEmpty &&
-      lastName.isNotEmpty &&
-      email.isNotEmpty &&
+      name.trim().isNotEmpty &&
+      lastName.trim().isNotEmpty &&
+      email.trim().isNotEmpty &&
       password.length >= 6 &&
       accept &&
       selectedCountry != null &&
+      visitorType != null && // ✅ requerido
       (!needsRegion || selectedRegionId != null);
-
-  // 👈 nuevo: código que enviaremos en el payload
-  String? get countryCode => selectedCountry?.code;
-
-  // 👈 nuevo: mostrar selector región si el país tiene >1 región
-  bool get needsRegion => (selectedCountry?.regionsCount ?? 0) > 1;
 
   RegisterFormState copyWith({
     String? name,
@@ -66,13 +74,15 @@ class RegisterFormState {
     bool? isPosting,
     String? error,
 
-    // 👈 nuevo
     List<Country>? countries,
     List<Region>? regions,
     Country? selectedCountry,
     int? selectedRegionId,
     bool? isLoadingCountries,
     bool? isLoadingRegions,
+
+    // ✅ nuevo
+    String? visitorType,
   }) {
     return RegisterFormState(
       name: name ?? this.name,
@@ -87,13 +97,15 @@ class RegisterFormState {
       isPosting: isPosting ?? this.isPosting,
       error: error,
 
-      // 👈 nuevo
       countries: countries ?? this.countries,
       regions: regions ?? this.regions,
       selectedCountry: selectedCountry ?? this.selectedCountry,
       selectedRegionId: selectedRegionId ?? this.selectedRegionId,
       isLoadingCountries: isLoadingCountries ?? this.isLoadingCountries,
       isLoadingRegions: isLoadingRegions ?? this.isLoadingRegions,
+
+      // ✅ nuevo
+      visitorType: visitorType ?? this.visitorType,
     );
   }
 }

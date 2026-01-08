@@ -37,8 +37,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     // Snackbars de error
     ref.listen<int>(authProvider.select((s) => s.errorSeq), (prev, seq) {
       if (prev == seq) return;
+
       final msg = ref.read(authProvider).errorMessage;
-      if (msg.isEmpty) return;
+      if (msg == null || msg.trim().isEmpty) return;
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

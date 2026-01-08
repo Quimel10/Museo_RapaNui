@@ -3,17 +3,11 @@ import 'package:disfruta_antofagasta/features/auth/domain/entities/region.dart';
 
 class GuestFormState {
   final String name;
+  final String? visitorType;
 
-  /// País seleccionado completo (se persiste su `code`)
   final Country? selectedCountry;
-
-  /// Lista de países de la API
   final List<Country> countries;
-
-  /// Lista de regiones de la API (según país)
   final List<Region> regions;
-
-  /// Región seleccionada (se persiste su `id`)
   final int? selectedRegionId;
   final int? age, stay;
 
@@ -24,12 +18,12 @@ class GuestFormState {
 
   const GuestFormState({
     this.name = '',
+    this.visitorType,
     this.selectedCountry,
     this.countries = const [],
     this.regions = const [],
     this.age,
     this.stay,
-
     this.selectedRegionId,
     this.isLoadingCountries = false,
     this.isLoadingRegions = false,
@@ -37,20 +31,19 @@ class GuestFormState {
     this.error,
   });
 
-  /// Código del país a persistir
   String? get countryCode => selectedCountry?.code;
-
-  /// ¿Debo mostrar selector de regiones?
   bool get needsRegion => (selectedCountry?.regionsCount ?? 0) > 1;
 
   bool get canSubmit =>
       name.trim().isNotEmpty &&
+      visitorType != null &&
       countryCode != null &&
       (!needsRegion || selectedRegionId != null) &&
       !isPosting;
 
   GuestFormState copyWith({
     String? name,
+    String? visitorType,
     Country? selectedCountry,
     List<Country>? countries,
     List<Region>? regions,
@@ -63,13 +56,14 @@ class GuestFormState {
     String? error,
   }) {
     return GuestFormState(
-      age: age ?? this.age,
-      stay: stay ?? this.stay,
       name: name ?? this.name,
+      visitorType: visitorType ?? this.visitorType,
       selectedCountry: selectedCountry ?? this.selectedCountry,
       countries: countries ?? this.countries,
       regions: regions ?? this.regions,
       selectedRegionId: selectedRegionId ?? this.selectedRegionId,
+      age: age ?? this.age,
+      stay: stay ?? this.stay,
       isLoadingCountries: isLoadingCountries ?? this.isLoadingCountries,
       isLoadingRegions: isLoadingRegions ?? this.isLoadingRegions,
       isPosting: isPosting ?? this.isPosting,

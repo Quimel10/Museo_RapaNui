@@ -3,6 +3,7 @@ import 'package:disfruta_antofagasta/config/router/app_router.dart';
 import 'package:disfruta_antofagasta/config/theme/theme_provider.dart';
 import 'package:disfruta_antofagasta/shared/session_manager.dart';
 import 'package:disfruta_antofagasta/shared/session_flag.dart';
+import 'package:disfruta_antofagasta/shared/screens/app_loading_wrapper.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,6 +72,11 @@ class MainApp extends ConsumerWidget {
       darkTheme: darkTheme,
       themeMode: themeMode,
       scrollBehavior: NoGlowScrollBehavior(),
+
+      // ✅ AQUÍ VA EL LOADING GLOBAL
+      builder: (context, child) {
+        return AppLoadingWrapper(child: child ?? const SizedBox.shrink());
+      },
     );
   }
 }

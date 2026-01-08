@@ -1,45 +1,56 @@
-import 'package:disfruta_antofagasta/features/auth/domain/entities/guest.dart';
-import 'package:disfruta_antofagasta/features/auth/infrastructure/datasources/auth_datasource_impl.dart';
-import 'package:disfruta_antofagasta/shared/provider/provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:disfruta_antofagasta/features/auth/domain/entities/guest.dart';
 import 'package:disfruta_antofagasta/features/auth/presentation/state/auth/auth_provider.dart';
+import 'package:disfruta_antofagasta/features/auth/presentation/state/geo/auth_geo_datasource_provider.dart';
+
 import 'guest_notifier.dart';
 import 'guest_state.dart';
 
-// Provider del datasource (ajusta si ya lo tienes)
-final geoDataSourceProvider = Provider<AuthDataSourceImpl>((ref) {
-  final storage = ref.read(keyValueStorageServiceProvider);
+String _normalizeVisitorType(String raw) {
+  final v = raw.trim().toLowerCase();
 
-  return AuthDataSourceImpl(
-    keyValueStorageService: storage,
-  ); // si necesita baseUrl ya lo tienes en Environment
-});
+  // Acepta variaciones típicas y las deja “bonitas” como quieres verlas en Analytics
+  if (v.contains('local')) return 'Local (RapaNui)';
+  if (v.contains('continental')) return 'Continental';
+  if (v.contains('extranj')) return 'Extranjero';
+
+  // Si llega ya correcto, lo devuelve tal cual capitalizado mínimo
+  if (raw.trim().isNotEmpty) return raw.trim();
+
+  // fallback seguro
+  return 'Continental';
+}
 
 final guestFormProvider =
     StateNotifierProvider.autoDispose<GuestFormNotifier, GuestFormState>((ref) {
-      final geo = ref.read(geoDataSourceProvider);
-      final auth = ref.read(authProvider.notifier); // tu AuthNotifier
+      final geo = ref.read(authGeoDataSourceProvider);
+      final auth = ref.read(authProvider.notifier);
 
       return GuestFormNotifier(
         loadCountries: geo.countries,
-        loadRegions: geo.regions,
+        loadRegionsByCode: (code) => geo.regionsByCountryCode(code),
         submitGuest:
             ({
               required String name,
               required String countryCode,
+              required String visitorType,
               int? regionId,
               int? day,
               int? age,
             }) async {
-              final Guest authRes = Guest(
-                name: name,
-                country: countryCode,
-                region: regionId,
-                day: day,
+              final normalizedVisitorType = _normalizeVisitorType(visitorType);
+
+              final guest = Guest(
+                name: name.trim(),
+                countryCode: countryCode.trim().toUpperCase(),
+                visitorType: normalizedVisitorType,
+                regionId: regionId,
+                daysStay: day,
                 age: age,
               );
 
-              await auth.guestUser(authRes);
+              await auth.guestUser(guest);
             },
       );
     });

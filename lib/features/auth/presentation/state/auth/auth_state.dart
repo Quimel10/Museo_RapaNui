@@ -9,16 +9,22 @@ class AuthState {
   final User? user;
   final Session? session;
   final Guest? guest;
-  final String errorMessage;
+
+  /// ✅ Nullable porque lo usas como null para "sin error"
+  final String? errorMessage;
+
+  /// Útil para forzar SnackBars aunque el mensaje sea igual
   final int errorSeq;
+
   AuthState({
     this.authStatus = AuthStatus.checking,
     this.user,
     this.session,
     this.guest,
-    this.errorMessage = '',
+    this.errorMessage,
     this.errorSeq = 0,
   });
+
   AuthState copyWith({
     AuthStatus? authStatus,
     User? user,
@@ -26,14 +32,12 @@ class AuthState {
     Guest? guest,
     String? errorMessage,
     int? errorSeq,
-
-    String? token,
   }) => AuthState(
     authStatus: authStatus ?? this.authStatus,
     user: user ?? this.user,
-    guest: guest ?? this.guest,
-    errorMessage: errorMessage ?? this.errorMessage,
     session: session ?? this.session,
+    guest: guest ?? this.guest,
+    errorMessage: errorMessage,
     errorSeq: errorSeq ?? this.errorSeq,
   );
 }

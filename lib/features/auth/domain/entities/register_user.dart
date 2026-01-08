@@ -1,16 +1,19 @@
-// lib/features/auth/domain/entities/register_user.dart
 class RegisterUser {
   final String name;
   final String lastname;
   final String email;
   final String password;
-  final String countryCode; // "CL"
-  final int? regionId; // 3
-  final int? age; // null o número
-  final int? daysStay; // null o número
-  final DateTime? arrivalDate; // null o fecha
-  final DateTime? departureDate; // null o fecha
-  final String? device; // "android:pixel7"
+  final String countryCode;
+  final int? regionId;
+  final int? age;
+  final int? daysStay;
+
+  /// rapanui | continental | foreign
+  final String visitorType;
+
+  final DateTime? arrivalDate;
+  final DateTime? departureDate;
+  final String? device;
 
   RegisterUser({
     required this.name,
@@ -18,6 +21,7 @@ class RegisterUser {
     required this.email,
     required this.password,
     required this.countryCode,
+    required this.visitorType,
     this.regionId,
     this.age,
     this.daysStay,
@@ -36,6 +40,7 @@ class RegisterUser {
       'region_id': regionId,
       'age': age,
       'days_stay': daysStay,
+      'visitor_type': visitorType,
       'arrival_date': arrivalDate?.toIso8601String(),
       'departure_date': departureDate?.toIso8601String(),
       'device': device,

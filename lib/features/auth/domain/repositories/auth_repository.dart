@@ -13,7 +13,8 @@ abstract class AuthRepository {
     int? regionId,
     String? device,
     int? age,
-    int? daysStay, // 👈 ESTE nombre es el bueno
+    int? daysStay,
+    String? visitorType, // ✅ NUEVO (para estadísticas)
   });
 
   Future<Auth> login(String email, String password);

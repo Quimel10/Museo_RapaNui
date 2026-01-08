@@ -1,4 +1,3 @@
-// lib/features/auth/presentation/state/register/register_notifier.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/country.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/region.dart';
@@ -6,86 +5,79 @@ import 'package:disfruta_antofagasta/features/auth/domain/entities/register_user
 import 'register_state.dart';
 
 typedef LoadCountriesFn = Future<List<Country>> Function();
-typedef LoadRegionsFn = Future<List<Region>> Function(int countryId);
+typedef LoadRegionsByCodeFn = Future<List<Region>> Function(String countryCode);
 typedef RegisterUserFn = Future<void> Function(RegisterUser req);
 
 class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
   final LoadCountriesFn loadCountries;
-  final LoadRegionsFn loadRegions;
+  final LoadRegionsByCodeFn loadRegionsByCode;
   final RegisterUserFn registerUserCallback;
 
   RegisterFormNotifier({
     required this.loadCountries,
-    required this.loadRegions,
+    required this.loadRegionsByCode,
     required this.registerUserCallback,
   }) : super(const RegisterFormState());
 
-  // 🔐 IDs para invalidar respuestas viejas si cambias de tab rápido
   int _countriesReqId = 0;
   int _regionsReqId = 0;
 
-  // ====== existentes ======
   void setField(String k, String v) {
+    if (!mounted) return;
+
     switch (k) {
       case 'name':
-        if (!mounted) return;
-        state = state.copyWith(name: v);
+        state = state.copyWith(name: v, error: null);
         break;
       case 'last':
-        if (!mounted) return;
-        state = state.copyWith(lastName: v);
+        state = state.copyWith(lastName: v, error: null);
         break;
       case 'age':
-        if (!mounted) return;
-        state = state.copyWith(age: _toIntOrNull(v));
+        state = state.copyWith(age: _toIntOrNull(v), error: null);
         break;
       case 'email':
-        if (!mounted) return;
-        state = state.copyWith(email: v);
+        state = state.copyWith(email: v, error: null);
         break;
       case 'stay':
-        if (!mounted) return;
-        state = state.copyWith(stay: _toIntOrNull(v));
+        state = state.copyWith(stay: _toIntOrNull(v), error: null);
         break;
       case 'pass':
-        if (!mounted) return;
-        state = state.copyWith(password: v);
+        state = state.copyWith(password: v, error: null);
         break;
-      // ya no usamos 'country' string para enviar, pero no rompe nada
       case 'country':
-        if (!mounted) return;
-        state = state.copyWith(country: v);
+        state = state.copyWith(country: v, error: null);
         break;
     }
   }
 
   int? _toIntOrNull(String v) {
-    if (v.trim().isEmpty) return null;
-    return int.tryParse(v.trim());
+    final t = v.trim();
+    if (t.isEmpty) return null;
+    return int.tryParse(t);
   }
 
   void acceptTOS(bool v) {
     if (!mounted) return;
-    state = state.copyWith(accept: v);
+    state = state.copyWith(accept: v, error: null);
   }
 
-  // ====== 👇 carga de catálogos (con guards) ======
+  void visitorTypeChanged(String? v) {
+    if (!mounted) return;
+    state = state.copyWith(visitorType: v, error: null);
+  }
+
   Future<void> bootstrap() async {
     final rid = ++_countriesReqId;
-
-    if (!mounted) return;
     state = state.copyWith(isLoadingCountries: true, error: null);
 
     try {
       final items = await loadCountries();
-
       if (!mounted || rid != _countriesReqId) return;
       state = state.copyWith(countries: items);
     } catch (_) {
       if (!mounted || rid != _countriesReqId) return;
       state = state.copyWith(error: 'No se pudieron cargar los países');
     } finally {
-      // ignore: control_flow_in_finally
       if (!mounted || rid != _countriesReqId) return;
       state = state.copyWith(isLoadingCountries: false);
     }
@@ -100,25 +92,25 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
       selectedRegionId: null,
       error: null,
     );
+
     if (c == null) return;
 
-    if (c.regionsCount > 1) {
-      final rid = ++_regionsReqId;
+    // ✅ FIX: SIEMPRE intentar cargar regiones.
+    final rid = ++_regionsReqId;
+    state = state.copyWith(isLoadingRegions: true);
 
-      state = state.copyWith(isLoadingRegions: true);
-      try {
-        final items = await loadRegions(c.id);
+    try {
+      final items = await loadRegionsByCode(c.code);
+      if (!mounted || rid != _regionsReqId) return;
 
-        if (!mounted || rid != _regionsReqId) return;
-        state = state.copyWith(regions: items);
-      } catch (_) {
-        if (!mounted || rid != _regionsReqId) return;
-        state = state.copyWith(error: 'No se pudieron cargar las regiones');
-      } finally {
-        // ignore: control_flow_in_finally
-        if (!mounted || rid != _regionsReqId) return;
-        state = state.copyWith(isLoadingRegions: false);
-      }
+      final active = items.where((r) => r.active).toList();
+      state = state.copyWith(regions: active);
+    } catch (_) {
+      if (!mounted || rid != _regionsReqId) return;
+      state = state.copyWith(error: 'No se pudieron cargar las regiones');
+    } finally {
+      if (!mounted || rid != _regionsReqId) return;
+      state = state.copyWith(isLoadingRegions: false);
     }
   }
 
@@ -127,34 +119,35 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
     state = state.copyWith(selectedRegionId: id, error: null);
   }
 
-  // ====== submit con country_code + region_id ======
   Future<void> submit() async {
     if (!mounted) return;
+
+    if (!state.isValid || state.visitorType == null) {
+      state = state.copyWith(error: 'Completa todos los campos requeridos.');
+      return;
+    }
 
     if (state.isPosting) return;
     state = state.copyWith(isPosting: true, error: null);
 
     try {
       final req = RegisterUser(
-        name: state.name,
-        lastname: state.lastName,
-        email: state.email,
+        name: state.name.trim(),
+        lastname: state.lastName.trim(),
+        email: state.email.trim(),
         password: state.password,
-        countryCode: state.countryCode!, // 👈 code (CL/AR/PE)
-        regionId: state.selectedRegionId, // 👈 id numérico (nullable)
+        countryCode: state.countryCode!,
+        regionId: state.selectedRegionId,
         age: state.age,
         daysStay: state.stay,
-        arrivalDate: null,
-        departureDate: null,
+        visitorType: state.visitorType!,
       );
 
       await registerUserCallback(req);
-      // AuthNotifier hace _setLoggedUser y navegas en tu listener
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       state = state.copyWith(error: 'Ocurrió un error. Inténtalo nuevamente.');
     } finally {
-      // ignore: control_flow_in_finally
       if (!mounted) return;
       state = state.copyWith(isPosting: false);
     }

@@ -2,8 +2,8 @@ name: disfruta_antofagasta
 description: "Museo RapaNui - Isla de Pascua"
 publish_to: 'none'
 
-# Nueva versión para App Store
-version: 1.1.2+2
+# Versión Play Store / App Store
+version: 1.2.1+1
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
@@ -34,13 +34,13 @@ dependencies:
   animations: ^2.1.0
   audioplayers: ^6.1.0
   just_audio: ^0.9.39
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.2.3
 
-  # 👉 plugin local de QR
+  # Plugin local QR
   qr_code_scanner:
     path: packages/qr_code_scanner
 
-  # Renderizado de HTML
+  # HTML
   flutter_html: ^3.0.0
 
 dev_dependencies:
@@ -60,44 +60,49 @@ flutter:
     # Weather
     - assets/weather/
 
-    # Imágenes generales
+    # Logos / imágenes
     - assets/logo.png
     - assets/logo_museo.png
     - assets/icon_ios.png
     - assets/bg_portada.png
     - assets/icons/
 
-    # 🇺🇳 BANDERAS PARA SELECTOR DE IDIOMA
+    # Splash Android 12 (icon con padding)
+    - assets/splash/android12_icon.png
+
+    # Idiomas / extras
     - assets/flags/
-
-    # PDFs
     - assets/pdf/antofagasta-mapa-turistico-mobile-small.pdf
-
-    # 🌍 TRADUCCIONES (CLAVE)
     - assets/i18n/
 
 # ===========================================
-# 🔥 ICONOS
+# 🔥 ICONOS DE LA APP
 # ===========================================
 flutter_launcher_icons:
   android: true
   ios: true
 
-  # ANDROID (se mantiene tal cual lo tenías)
   image_path_android: "assets/icons/mapse_launcher.png"
   adaptive_icon_background: "#FFFFFFFF"
   adaptive_icon_foreground: "assets/icons/mapse_launcher.png"
   min_sdk_android: 21
 
-  # iOS (NUEVO)
   image_path_ios: "assets/icon_ios.png"
   remove_alpha_ios: true
 
 # ===========================================
-# 🔥 SPLASH SCREEN
+# 🔥 SPLASH SCREEN NATIVO (DEFINITIVO)
 # ===========================================
 flutter_native_splash:
   color: "#000000"
-  image: assets/icons/mapse_launcher.png
-  android: false
+
+  # Android < 12 e iOS → logo horizontal completo
+  image: assets/logo.png
+
+  android: true
   ios: true
+
+  # Android 12+ → icon preparado con padding (NO se recorta)
+  android_12:
+    color: "#000000"
+    image: assets/splash/android12_icon.png

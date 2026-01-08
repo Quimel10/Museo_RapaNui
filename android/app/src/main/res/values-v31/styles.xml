@@ -1,26 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <!-- Splash Theme for Android 12+ -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <!-- Fondo del splash -->
+        <!-- Ícono del splash (tu símbolo MAPSE) -->
+        <!-- Duración mínima del splash -->
+        <item name="android:windowSplashScreenAnimationDuration">200</item>
         <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-
-        <!-- Fondo del splash -->
-        <item name="android:windowSplashScreenBackground">@android:color/black</item>
-
-        <!-- Ícono del splash (tu símbolo MAPSE) -->
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
-
-        <!-- Duración mínima del splash -->
-        <item name="android:windowSplashScreenAnimationDuration">200</item>
+        <item name="android:windowSplashScreenBackground">#000000</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/android12splash</item>
     </style>
-
     <!-- Theme after Flutter starts -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
-
 </resources>

@@ -10,7 +10,6 @@ class AppTheme {
   static ThemeData dark() => _museumDarkTheme();
 
   static ThemeData _museumDarkTheme() {
-    // ColorScheme “oscuro” consistente (mantenemos el primary naranja para links/acento general)
     final colorScheme = const ColorScheme(
       brightness: Brightness.dark,
 
@@ -26,10 +25,10 @@ class AppTheme {
       error: AppColors.error,
       onError: AppColors.neutral50,
 
-      background: AppColors.parchment, // negro
-      onBackground: AppColors.neutral50, // blanco
+      background: AppColors.parchment,
+      onBackground: AppColors.neutral50,
 
-      surface: AppColors.panel, // tarjetas
+      surface: AppColors.panel,
       onSurface: AppColors.neutral50,
 
       surfaceVariant: AppColors.panelDark,
@@ -51,6 +50,10 @@ class AppTheme {
       ThemeData(brightness: Brightness.dark).textTheme,
     );
 
+    // ✅ Color de íconos en inputs
+    const inputIconColor = Colors.black54;
+    final hintColor = Colors.black.withOpacity(0.45);
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -58,13 +61,17 @@ class AppTheme {
 
       scaffoldBackgroundColor: AppColors.parchment,
 
-      // ✅ Loader "Cargando" SIEMPRE blanco
+      // ✅ CURSOR NEGRO (AQUÍ ESTÁ LA CLAVE)
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: Colors.black,
+        selectionHandleColor: Colors.black,
+      ),
+
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: Colors.white,
         circularTrackColor: Color(0x33FFFFFF),
       ),
 
-      // ✅ Sliders (mini reproductor + slider de audio) en blanco
       sliderTheme: SliderThemeData(
         trackHeight: 3,
         activeTrackColor: Colors.white,
@@ -75,7 +82,6 @@ class AppTheme {
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
       ),
 
-      // Textos globales en blanco / grises claros
       textTheme: baseTextTheme.copyWith(
         headlineLarge: baseTextTheme.headlineLarge?.copyWith(
           fontWeight: FontWeight.w700,
@@ -150,6 +156,10 @@ class AppTheme {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.sm,
         ),
+        prefixIconColor: inputIconColor,
+        suffixIconColor: inputIconColor,
+        iconColor: inputIconColor,
+        hintStyle: TextStyle(color: hintColor, fontWeight: FontWeight.w500),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: const BorderSide(color: Color(0xFF2A2A2A)),

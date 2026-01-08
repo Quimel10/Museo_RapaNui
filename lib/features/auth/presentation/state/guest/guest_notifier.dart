@@ -1,15 +1,16 @@
-// lib/features/auth/presentation/state/guest/guest_notifier.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/country.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/region.dart';
 import 'guest_state.dart';
 
 typedef LoadCountriesFn = Future<List<Country>> Function();
-typedef LoadRegionsFn = Future<List<Region>> Function(int countryId);
+typedef LoadRegionsByCodeFn = Future<List<Region>> Function(String countryCode);
+
 typedef SubmitGuestFn =
     Future<void> Function({
       required String name,
       required String countryCode,
+      required String visitorType,
       int? regionId,
       int? day,
       int? age,
@@ -17,20 +18,18 @@ typedef SubmitGuestFn =
 
 class GuestFormNotifier extends StateNotifier<GuestFormState> {
   final LoadCountriesFn loadCountries;
-  final LoadRegionsFn loadRegions;
+  final LoadRegionsByCodeFn loadRegionsByCode;
   final SubmitGuestFn submitGuest;
 
   GuestFormNotifier({
     required this.loadCountries,
-    required this.loadRegions,
+    required this.loadRegionsByCode,
     required this.submitGuest,
   }) : super(const GuestFormState());
 
-  // IDs para invalidar respuestas viejas si cambias de tab rápido
   int _countriesReqId = 0;
   int _regionsReqId = 0;
 
-  /// Llamar una sola vez al montar el formulario (p. ej., en initState del GuestForm)
   Future<void> bootstrap() async {
     final rid = ++_countriesReqId;
 
@@ -39,14 +38,13 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
 
     try {
       final items = await loadCountries();
-
       if (!mounted || rid != _countriesReqId) return;
+
       state = state.copyWith(countries: items);
     } catch (_) {
       if (!mounted || rid != _countriesReqId) return;
       state = state.copyWith(error: 'No se pudieron cargar los países');
     } finally {
-      // ignore: control_flow_in_finally
       if (!mounted || rid != _countriesReqId) return;
       state = state.copyWith(isLoadingCountries: false);
     }
@@ -57,12 +55,19 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
     state = state.copyWith(name: v, error: null);
   }
 
+  void visitorTypeChanged(String? v) {
+    if (!mounted) return;
+    state = state.copyWith(visitorType: v, error: null);
+  }
+
   void ageChanged(String v) {
-    state = state.copyWith(age: int.tryParse(v)); // null si vacío/no numérico
+    if (!mounted) return;
+    state = state.copyWith(age: int.tryParse(v), error: null);
   }
 
   void daysStayChanged(String v) {
-    state = state.copyWith(stay: int.tryParse(v));
+    if (!mounted) return;
+    state = state.copyWith(stay: int.tryParse(v), error: null);
   }
 
   Future<void> countryChanged(Country? c) async {
@@ -74,25 +79,27 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
       selectedRegionId: null,
       error: null,
     );
+
     if (c == null) return;
 
-    if (c.regionsCount > 1) {
-      final rid = ++_regionsReqId;
+    // ✅ FIX: SIEMPRE intentamos cargar regiones.
+    // Si el país no tiene, el endpoint devolverá [] y listo.
+    final rid = ++_regionsReqId;
+    state = state.copyWith(isLoadingRegions: true);
 
-      state = state.copyWith(isLoadingRegions: true);
-      try {
-        final items = await loadRegions(c.id);
+    try {
+      final items = await loadRegionsByCode(c.code);
+      if (!mounted || rid != _regionsReqId) return;
 
-        if (!mounted || rid != _regionsReqId) return;
-        state = state.copyWith(regions: items);
-      } catch (_) {
-        if (!mounted || rid != _regionsReqId) return;
-        state = state.copyWith(error: 'No se pudieron cargar las regiones');
-      } finally {
-        // ignore: control_flow_in_finally
-        if (!mounted || rid != _regionsReqId) return;
-        state = state.copyWith(isLoadingRegions: false);
-      }
+      // opcional: filtrar solo activas (por si acaso)
+      final active = items.where((r) => r.active).toList();
+      state = state.copyWith(regions: active);
+    } catch (_) {
+      if (!mounted || rid != _regionsReqId) return;
+      state = state.copyWith(error: 'No se pudieron cargar las regiones');
+    } finally {
+      if (!mounted || rid != _regionsReqId) return;
+      state = state.copyWith(isLoadingRegions: false);
     }
   }
 
@@ -109,15 +116,16 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
     try {
       await submitGuest(
         name: state.name.trim(),
-        countryCode: state.countryCode!, // seguro gracias a canSubmit
+        countryCode: state.countryCode!,
+        visitorType: state.visitorType!,
         regionId: state.selectedRegionId,
+        age: state.age,
+        day: state.stay,
       );
-      // En éxito, AuthNotifier hace _setLoggedUser y tu listener navega.
     } catch (_) {
       if (!mounted) return;
       state = state.copyWith(error: 'Ocurrió un error. Inténtalo nuevamente.');
     } finally {
-      // ignore: control_flow_in_finally
       if (!mounted) return;
       state = state.copyWith(isPosting: false);
     }

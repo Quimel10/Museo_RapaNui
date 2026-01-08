@@ -1,3 +1,4 @@
+// lib/features/auth/domain/datasources/auth_datasource.dart
 import 'package:dio/dio.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/auth.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/check_auth.dart';
@@ -14,7 +15,8 @@ abstract class AuthDataSource {
     int? regionId,
     String? device,
     int? age,
-    int? daysStay, // 👈 igual que en repo
+    int? daysStay,
+    String? visitorType, // ✅ NUEVO
   });
 
   Future<Auth> login(String email, String password);
