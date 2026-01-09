@@ -14,7 +14,7 @@ final registerFormProvider =
       final registerCb = ref.read(authProvider.notifier).registerUser;
 
       return RegisterFormNotifier(
-        loadCountries: geo.countries,
+        loadCountries: () => geo.countries(),
         loadRegionsByCode: (code) => geo.regionsByCountryCode(code),
         registerUserCallback: registerCb,
       );

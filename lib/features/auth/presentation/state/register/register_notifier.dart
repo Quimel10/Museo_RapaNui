@@ -1,17 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:disfruta_antofagasta/features/auth/domain/entities/country.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/region.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/register_user.dart';
+
 import 'register_state.dart';
 
-typedef LoadCountriesFn = Future<List<Country>> Function();
-typedef LoadRegionsByCodeFn = Future<List<Region>> Function(String countryCode);
-typedef RegisterUserFn = Future<void> Function(RegisterUser req);
+typedef LoadCountries = Future<List<Country>> Function();
+typedef LoadRegionsByCode = Future<List<Region>> Function(String code);
+typedef RegisterUserCallback = Future<void> Function(RegisterUser user);
 
 class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
-  final LoadCountriesFn loadCountries;
-  final LoadRegionsByCodeFn loadRegionsByCode;
-  final RegisterUserFn registerUserCallback;
+  final LoadCountries loadCountries;
+  final LoadRegionsByCode loadRegionsByCode;
+  final RegisterUserCallback registerUserCallback;
+
+  int _countriesReqId = 0;
+  int _regionsReqId = 0;
 
   RegisterFormNotifier({
     required this.loadCountries,
@@ -19,137 +24,138 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
     required this.registerUserCallback,
   }) : super(const RegisterFormState());
 
-  int _countriesReqId = 0;
-  int _regionsReqId = 0;
-
-  void setField(String k, String v) {
-    if (!mounted) return;
-
-    switch (k) {
-      case 'name':
-        state = state.copyWith(name: v, error: null);
-        break;
-      case 'last':
-        state = state.copyWith(lastName: v, error: null);
-        break;
-      case 'age':
-        state = state.copyWith(age: _toIntOrNull(v), error: null);
-        break;
-      case 'email':
-        state = state.copyWith(email: v, error: null);
-        break;
-      case 'stay':
-        state = state.copyWith(stay: _toIntOrNull(v), error: null);
-        break;
-      case 'pass':
-        state = state.copyWith(password: v, error: null);
-        break;
-      case 'country':
-        state = state.copyWith(country: v, error: null);
-        break;
-    }
-  }
-
-  int? _toIntOrNull(String v) {
-    final t = v.trim();
-    if (t.isEmpty) return null;
-    return int.tryParse(t);
-  }
-
-  void acceptTOS(bool v) {
-    if (!mounted) return;
-    state = state.copyWith(accept: v, error: null);
-  }
-
-  void visitorTypeChanged(String? v) {
-    if (!mounted) return;
-    state = state.copyWith(visitorType: v, error: null);
-  }
-
   Future<void> bootstrap() async {
-    final rid = ++_countriesReqId;
-    state = state.copyWith(isLoadingCountries: true, error: null);
+    final req = ++_countriesReqId;
+
+    state = state.copyWith(isLoadingCountries: true, clearError: true);
 
     try {
-      final items = await loadCountries();
-      if (!mounted || rid != _countriesReqId) return;
-      state = state.copyWith(countries: items);
+      final list = await loadCountries();
+      if (req != _countriesReqId) return;
+
+      state = state.copyWith(isLoadingCountries: false, countries: list);
     } catch (_) {
-      if (!mounted || rid != _countriesReqId) return;
-      state = state.copyWith(error: 'No se pudieron cargar los países');
-    } finally {
-      if (!mounted || rid != _countriesReqId) return;
-      state = state.copyWith(isLoadingCountries: false);
+      if (req != _countriesReqId) return;
+
+      state = state.copyWith(
+        isLoadingCountries: false,
+        error: 'No pudimos cargar países.',
+      );
     }
+  }
+
+  void setField(String key, String value) {
+    switch (key) {
+      case 'name':
+        state = state.copyWith(name: value, clearError: true);
+        break;
+      case 'last':
+        state = state.copyWith(last: value, clearError: true);
+        break;
+      case 'email':
+        state = state.copyWith(email: value, clearError: true);
+        break;
+      case 'pass':
+        state = state.copyWith(pass: value, clearError: true);
+        break;
+      case 'age':
+        state = state.copyWith(
+          age: int.tryParse(value.trim()),
+          clearError: true,
+        );
+        break;
+      case 'stay':
+        state = state.copyWith(
+          stay: int.tryParse(value.trim()),
+          clearError: true,
+        );
+        break;
+    }
+  }
+
+  void visitorTypeChanged(String v) {
+    state = state.copyWith(visitorType: v, clearError: true);
   }
 
   Future<void> countryChanged(Country? c) async {
-    if (!mounted) return;
+    if (c == null) return;
 
     state = state.copyWith(
       selectedCountry: c,
       regions: const [],
-      selectedRegionId: null,
-      error: null,
+      clearSelectedRegion: true,
+      isLoadingRegions: true,
+      clearError: true,
     );
 
-    if (c == null) return;
-
-    // ✅ FIX: SIEMPRE intentar cargar regiones.
-    final rid = ++_regionsReqId;
-    state = state.copyWith(isLoadingRegions: true);
+    final req = ++_regionsReqId;
 
     try {
-      final items = await loadRegionsByCode(c.code);
-      if (!mounted || rid != _regionsReqId) return;
+      final regs = await loadRegionsByCode(c.code);
+      if (req != _regionsReqId) return;
 
-      final active = items.where((r) => r.active).toList();
-      state = state.copyWith(regions: active);
+      final currentId = state.selectedRegionId;
+      final exists = currentId != null && regs.any((r) => r.id == currentId);
+
+      state = state.copyWith(
+        isLoadingRegions: false,
+        regions: regs,
+        selectedRegionId: exists ? currentId : null,
+      );
     } catch (_) {
-      if (!mounted || rid != _regionsReqId) return;
-      state = state.copyWith(error: 'No se pudieron cargar las regiones');
-    } finally {
-      if (!mounted || rid != _regionsReqId) return;
-      state = state.copyWith(isLoadingRegions: false);
+      if (req != _regionsReqId) return;
+
+      state = state.copyWith(
+        isLoadingRegions: false,
+        regions: const [],
+        clearSelectedRegion: true,
+      );
     }
   }
 
   void regionChanged(int? id) {
-    if (!mounted) return;
-    state = state.copyWith(selectedRegionId: id, error: null);
+    state = state.copyWith(selectedRegionId: id, clearError: true);
   }
 
   Future<void> submit() async {
-    if (!mounted) return;
+    if (state.isPosting) return;
 
-    if (!state.isValid || state.visitorType == null) {
-      state = state.copyWith(error: 'Completa todos los campos requeridos.');
+    if (state.visitorType == null || state.visitorType!.trim().isEmpty) {
+      state = state.copyWith(error: 'Selecciona el tipo de visitante.');
       return;
     }
 
-    if (state.isPosting) return;
-    state = state.copyWith(isPosting: true, error: null);
+    if (!state.canSubmit) {
+      state = state.copyWith(error: 'Completa los campos requeridos.');
+      return;
+    }
+
+    state = state.copyWith(isPosting: true, clearError: true);
 
     try {
-      final req = RegisterUser(
+      final countryCode = state.selectedCountry!.code.trim().toUpperCase();
+      final regionId = state.needsRegion ? state.selectedRegionId : null;
+
+      final user = RegisterUser(
         name: state.name.trim(),
-        lastname: state.lastName.trim(),
+        lastname: state.last.trim(),
         email: state.email.trim(),
-        password: state.password,
-        countryCode: state.countryCode!,
-        regionId: state.selectedRegionId,
+        password: state.pass,
+        countryCode: countryCode,
+        visitorType: state.visitorType!.trim(),
+        regionId: regionId,
         age: state.age,
         daysStay: state.stay,
-        visitorType: state.visitorType!,
       );
 
-      await registerUserCallback(req);
-    } catch (_) {
-      if (!mounted) return;
-      state = state.copyWith(error: 'Ocurrió un error. Inténtalo nuevamente.');
-    } finally {
-      if (!mounted) return;
+      await registerUserCallback(user);
+
       state = state.copyWith(isPosting: false);
+    } catch (_) {
+      state = state.copyWith(
+        isPosting: false,
+        error: 'No pudimos crear la cuenta.',
+      );
     }
   }
 }

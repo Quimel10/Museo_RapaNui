@@ -5,14 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:disfruta_antofagasta/features/home/domain/repositories/home_repository.dart';
 import 'package:disfruta_antofagasta/features/home/infrastructure/datasources/home_datasource_impl.dart';
 import 'package:disfruta_antofagasta/features/home/infrastructure/repositories/home_repository_impl.dart';
+import 'package:disfruta_antofagasta/shared/provider/provider.dart'; // keyValueStorageServiceProvider
 
-/// Proveedor del HomeRepository
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
-  // Por ahora los endpoints de Home NO usan el token (lo estás borrando del header),
-  // así que podemos pasar un string vacío sin problemas.
+  final storage = ref.read(keyValueStorageServiceProvider);
+
   final dataSource = HomeDatasourceImpl(
-    accessToken: '', // si algún día lo necesitas, lo lees del authProvider aquí
+    accessToken: '',
+    storage: storage, // ✅ cache real en datasource
   );
 
-  return HomeRepositoryImpl(dataSource: dataSource);
+  return HomeRepositoryImpl(
+    dataSource: dataSource,
+    storage: storage, // (lo dejamos por si quieres cache extra arriba)
+  );
 });

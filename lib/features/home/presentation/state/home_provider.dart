@@ -1,3 +1,4 @@
+// lib/features/home/presentation/state/home_provider.dart
 import 'package:disfruta_antofagasta/features/home/presentation/provider/home_repository_provider.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/state/home_notifier.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/state/home_state.dart';
@@ -8,13 +9,14 @@ final homeProvider = StateNotifierProvider<HomeNotifier, HomeState>((ref) {
   final repository = ref.watch(homeRepositoryProvider);
   final notifier = HomeNotifier(repository: repository);
 
-  // Inicializa con el idioma actual
+  // ✅ No ejecutar init directamente en el build del provider.
+  // Mejor en microtask para evitar estados raros y asegurar orden correcto.
   final initialLang = ref.read(languageProvider);
-  notifier.init(initialLang);
+  Future.microtask(() => notifier.init(initialLang));
 
-  // Reacciona a cambios de idioma sin recrear el notifier
+  // ✅ Reacciona a cambios de idioma sin recrear el notifier
   ref.listen<String>(languageProvider, (prev, next) {
-    notifier.init(next);
+    Future.microtask(() => notifier.init(next));
   });
 
   return notifier;

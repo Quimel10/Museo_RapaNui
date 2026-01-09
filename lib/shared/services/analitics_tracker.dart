@@ -23,10 +23,12 @@ class AnalyticsTracker {
     final tok = await storage.getValue<String>('token');
     final lang = await storage.getValue<String>('language') ?? 'es';
 
-    // ⬇️ LOG del token (solo primeros 10 chars para no mostrar todo)
-    print(
-      '[ANALYTICS] token: ${tok == null ? 'NULL' : tok.substring(0, 10)}...',
-    );
+    // ✅ FIX: substring seguro (evita RangeError si token < 10)
+    final tokenPreview = (tok == null || tok.isEmpty)
+        ? 'NULL'
+        : (tok.length <= 10 ? tok : tok.substring(0, 10));
+
+    print('[ANALYTICS] token: $tokenPreview...');
 
     final payload = <String, dynamic>{
       'lang': lang,
@@ -38,20 +40,44 @@ class AnalyticsTracker {
 
     print('[ANALYTICS] Enviando payload: $payload');
 
-    try {
-      final response = await dio.post(
-        '/antofa/events',
-        data: payload,
-        options: tok != null && tok.isNotEmpty
-            ? Options(headers: {'Authorization': 'Bearer $tok'})
-            : null,
-      );
+    // ✅ FIX: fallback de endpoint (por si tu API real es /events)
+    final endpoints = <String>['/antofa/events', '/events'];
 
+    DioException? lastErr;
+
+    for (final path in endpoints) {
+      try {
+        final response = await dio.post(
+          path,
+          data: payload,
+          options: (tok != null && tok.isNotEmpty)
+              ? Options(headers: {'Authorization': 'Bearer $tok'})
+              : null,
+        );
+
+        print(
+          '[ANALYTICS] OK ($path) status: ${response.statusCode} data: ${response.data}',
+        );
+        return; // ✅ listo
+      } on DioException catch (e) {
+        lastErr = e;
+
+        final code = e.response?.statusCode;
+        print('[ANALYTICS] FAIL ($path) status: $code error: ${e.message}');
+
+        // Si no es 404, no tiene sentido seguir probando (ej: 401, 500, etc.)
+        if (code != 404) break;
+      } catch (e) {
+        print('[ANALYTICS] ERROR ($path): $e');
+        break;
+      }
+    }
+
+    // Si llegó acá, falló todo
+    if (lastErr != null) {
       print(
-        '[ANALYTICS] OK status: ${response.statusCode} data: ${response.data}',
+        '[ANALYTICS] FINAL ERROR: ${lastErr.response?.statusCode} ${lastErr.message}',
       );
-    } catch (e) {
-      print('[ANALYTICS] ERROR: $e');
     }
   }
 

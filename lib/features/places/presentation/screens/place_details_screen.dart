@@ -1,4 +1,5 @@
 // lib/features/places/presentation/screens/place_details_screen.dart
+
 import 'package:disfruta_antofagasta/features/places/presentation/state/place_provider.dart';
 import 'package:disfruta_antofagasta/features/places/presentation/widgets/full_screen_gallery.dart';
 import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
@@ -10,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:just_audio/just_audio.dart';
 
 class PlaceDetailsScreen extends ConsumerStatefulWidget {
   final String placeId;
@@ -55,9 +55,106 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     return (v == key) ? fallback : v;
   }
 
+  void _openGallery(
+    BuildContext context,
+    List<String> images,
+    int initialIndex,
+  ) {
+    if (images.isEmpty) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            FullScreenGallery(images: images, initialIndex: initialIndex),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // ✅ SOLO GALERÍA DEL "PUNTO TURÍSTICO"
+  // ===========================================================================
+  List<String> _extractTouristPointGallery(PlaceEntity p) {
+    final out = <String>[];
+
+    List<String> normalizeList(dynamic v) {
+      if (v is List) {
+        return v
+            .whereType<String>()
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+      return const <String>[];
+    }
+
+    Map<String, dynamic>? asMap(dynamic v) {
+      if (v is Map<String, dynamic>) return v;
+      if (v is Map) return Map<String, dynamic>.from(v);
+      return null;
+    }
+
+    try {
+      final dynamic any = p;
+
+      final candidates = <dynamic>[
+        any.infoPuntoTuristico,
+        any.infoPuntoTuristicoData,
+        any.puntoTuristico,
+        any.punto_turistico,
+        any.touristPoint,
+        any.tourist_point,
+      ];
+
+      for (final node in candidates) {
+        final m = asMap(node);
+        if (m == null) continue;
+
+        final keys = [
+          'galeriaFotos',
+          'galeria_fotos',
+          'galeria',
+          'gallery',
+          'fotos',
+          'images',
+          'imagenes',
+        ];
+
+        for (final k in keys) {
+          if (m.containsKey(k)) {
+            final list = normalizeList(m[k]);
+            if (list.isNotEmpty) {
+              out.addAll(list);
+              break;
+            }
+          }
+        }
+
+        if (out.isNotEmpty) break;
+      }
+    } catch (_) {}
+
+    // fallback (por si tu endpoint viejo solo manda imgMedium)
+    if (out.isEmpty) {
+      try {
+        final dynamic any = p;
+        final dynamic med = any.imgMedium;
+        final list = normalizeList(med);
+        if (list.isNotEmpty) out.addAll(list);
+      } catch (_) {}
+    }
+
+    final seen = <String>{};
+    final dedup = <String>[];
+    for (final u in out) {
+      if (seen.add(u)) dedup.add(u);
+    }
+    return dedup;
+  }
+
   @override
   Widget build(BuildContext context) {
     final placeState = ref.watch(placeProvider);
+    final audio = ref.watch(audioPlayerProvider);
 
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -114,11 +211,10 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     final String titulo = p.titulo.toString();
     final String tipo = p.tipo.toString();
 
-    final String imagenHigh = p.imagenHigh.toString();
-    final String imagen = p.imagen.toString();
-    final String heroImage = (imagenHigh.trim().isNotEmpty)
-        ? imagenHigh.trim()
-        : imagen.trim();
+    final String heroImage =
+        (p.imagenHigh?.toString().trim().isNotEmpty == true)
+        ? p.imagenHigh!.toString()
+        : (p.imagen?.toString() ?? '');
 
     final String descHtml =
         (p.descLargaHtml?.toString().trim().isNotEmpty == true)
@@ -129,19 +225,7 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
         ? p.audio!.toString().trim()
         : null;
 
-    final List<String> gallery =
-        ((p.imgMedium as dynamic) is List
-                ? List<dynamic>.from(p.imgMedium as dynamic)
-                : const <dynamic>[])
-            .map((e) => e.toString())
-            .where(
-              (url) =>
-                  url.isNotEmpty &&
-                  (url.startsWith('http://') || url.startsWith('https://')),
-            )
-            .toList();
-
-    final audio = ref.watch(audioPlayerProvider);
+    final galleryUrls = _extractTouristPointGallery(p);
 
     final playLabel = _trOr(
       'piece_detail.play_audio_button',
@@ -153,12 +237,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
       'piece_detail.tap_to_play',
       'Tocar para reproducir',
     );
-
-    final bottomSafe = MediaQuery.of(context).padding.bottom;
-    const navApprox = 56.0;
-    const miniApprox = 74.0;
-    const extra = 18.0;
-    final bottomSpacer = bottomSafe + navApprox + miniApprox + extra;
 
     final cardBg = cs.surface;
     final cardBorder = cs.outline.withOpacity(0.6);
@@ -194,43 +272,20 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 12),
-
-                  if (tipo.trim().isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: cardBorder),
-                        color: cs.surfaceVariant,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.place,
-                            size: 16,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            tipo,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
 
                   if (audioUrl != null) ...[
                     const SizedBox(height: 24),
-                    StreamBuilder<PlayerState>(
-                      stream: audio.playerStateStream,
+                    StreamBuilder<PositionData>(
+                      stream: audio.positionDataStream,
                       builder: (context, snapshot) {
+                        final data =
+                            snapshot.data ??
+                            const PositionData(
+                              Duration.zero,
+                              Duration.zero,
+                              Duration.zero,
+                            );
+
                         final nowPlaying = ref.watch(nowPlayingProvider);
                         final notifier = ref.read(nowPlayingProvider.notifier);
 
@@ -239,12 +294,11 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                         final bool isThisPlaying =
                             isThisActive && nowPlaying.isPlaying;
 
-                        final Duration duration = isThisActive
-                            ? (audio.duration ?? Duration.zero)
+                        final duration = isThisActive
+                            ? data.duration
                             : Duration.zero;
-
-                        final Duration position = isThisActive
-                            ? audio.position
+                        final position = isThisActive
+                            ? data.position
                             : Duration.zero;
 
                         return Container(
@@ -258,48 +312,36 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                             children: [
                               Row(
                                 children: [
-                                  Container(
-                                    width: 46,
-                                    height: 46,
-                                    decoration: BoxDecoration(
-                                      color: cs.surfaceVariant,
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(color: cardBorder),
+                                  IconButton(
+                                    iconSize: 30,
+                                    icon: Icon(
+                                      isThisPlaying
+                                          ? Icons.pause_rounded
+                                          : Icons.play_arrow_rounded,
                                     ),
-                                    child: IconButton(
-                                      iconSize: 26,
-                                      icon: Icon(
-                                        isThisPlaying
-                                            ? Icons.pause_rounded
-                                            : Icons.play_arrow_rounded,
-                                        color: cs.onSurface,
-                                      ),
-                                      onPressed: nowPlaying.isBusy
-                                          ? null
-                                          : () async {
-                                              final current = ref.read(
-                                                nowPlayingProvider,
+                                    onPressed: nowPlaying.isBusy
+                                        ? null
+                                        : () async {
+                                            final current = ref.read(
+                                              nowPlayingProvider,
+                                            );
+                                            final activeNow =
+                                                (current.url ?? '') == audioUrl;
+
+                                            if (!activeNow) {
+                                              await notifier.playFromUrl(
+                                                url: audioUrl,
+                                                title: titulo,
+                                                subtitle: tipo,
+                                                placeId: p.id,
+                                                place: p,
+                                                imageUrl: heroImage,
+                                                descriptionHtml: descHtml,
                                               );
-                                              final activeNow =
-                                                  (current.url ?? '') ==
-                                                  audioUrl;
-
-                                              if (!activeNow) {
-                                                await notifier.playFromUrl(
-                                                  url: audioUrl,
-                                                  title: titulo,
-                                                  subtitle: tipo,
-                                                  placeId: p.id,
-                                                  place: p,
-                                                  imageUrl: heroImage,
-                                                  descriptionHtml: descHtml,
-                                                );
-                                                return;
-                                              }
-
+                                            } else {
                                               await notifier.toggle();
-                                            },
-                                    ),
+                                            }
+                                          },
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -311,78 +353,44 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                           playLabel,
                                           style: theme.textTheme.titleMedium
                                               ?.copyWith(
-                                                color: cs.onSurface,
                                                 fontWeight: FontWeight.w700,
                                               ),
                                         ),
-                                        const SizedBox(height: 4),
                                         Text(
                                           isThisActive
                                               ? (isThisPlaying
                                                     ? playingLabel
                                                     : pausedLabel)
                                               : tapToPlayLabel,
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                color: cs.onSurfaceVariant,
-                                              ),
+                                          style: theme.textTheme.bodySmall,
                                         ),
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 14),
-                              SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 3,
-                                  thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 7,
-                                  ),
-                                  overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 14,
-                                  ),
-                                  activeTrackColor: cs.onSurface,
-                                  inactiveTrackColor: cs.onSurface.withOpacity(
-                                    0.25,
-                                  ),
-                                  thumbColor: cs.onSurface,
-                                  overlayColor: cs.onSurface.withOpacity(0.12),
-                                ),
-                                child: Slider(
-                                  value: duration.inMilliseconds == 0
-                                      ? 0
-                                      : position.inMilliseconds
-                                            .clamp(0, duration.inMilliseconds)
-                                            .toDouble(),
-                                  min: 0,
-                                  max: duration.inMilliseconds == 0
-                                      ? 1
-                                      : duration.inMilliseconds.toDouble(),
-                                  onChanged:
-                                      (!isThisActive || nowPlaying.isBusy)
-                                      ? null
-                                      : (v) => audio.seek(
-                                          Duration(milliseconds: v.round()),
-                                        ),
-                                ),
+                              Slider(
+                                value: duration.inMilliseconds == 0
+                                    ? 0
+                                    : position.inMilliseconds
+                                          .clamp(0, duration.inMilliseconds)
+                                          .toDouble(),
+                                min: 0,
+                                max: duration.inMilliseconds == 0
+                                    ? 1
+                                    : duration.inMilliseconds.toDouble(),
+                                onChanged: (!isThisActive || nowPlaying.isBusy)
+                                    ? null
+                                    : (v) => audio.seek(
+                                        Duration(milliseconds: v.round()),
+                                      ),
                               ),
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    _format(position),
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  Text(
-                                    _format(duration),
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ),
+                                  Text(_format(position)),
+                                  Text(_format(duration)),
                                 ],
                               ),
                             ],
@@ -393,91 +401,115 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                   ],
 
                   const SizedBox(height: 28),
-                  Text(
-                    tr('piece_detail.description_title'),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: cs.onBackground,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  Html(data: descHtml),
 
-                  // ✅ FIX: estilos sin style.dart (compat con flutter_html 3.0.0)
-                  Html(
-                    data: descHtml,
-                    style: {
-                      "body": Style(
-                        margin: Margins.zero,
-                        padding: HtmlPaddings.zero,
-                        color: cs.onBackground,
-                        fontSize: FontSize(16),
-                        lineHeight: LineHeight.number(1.55),
-                      ),
-                      "p": Style(
-                        color: cs.onBackground,
-                        fontSize: FontSize(16),
-                        lineHeight: LineHeight.number(1.55),
-                      ),
-                      "li": Style(
-                        color: cs.onBackground,
-                        fontSize: FontSize(16),
-                        lineHeight: LineHeight.number(1.55),
-                      ),
-                      "strong": Style(color: cs.onBackground),
-                      "em": Style(color: cs.onBackground),
-                      "a": Style(
-                        color: cs.primary,
-                        textDecoration: TextDecoration.underline,
-                      ),
-                    },
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  if (gallery.isNotEmpty) ...[
+                  // =======================
+                  // ✅ GALERÍA (con HERO)
+                  // =======================
+                  if (galleryUrls.isNotEmpty) ...[
+                    const SizedBox(height: 22),
                     Text(
-                      tr('piece_detail.images_title'),
-                      style: theme.textTheme.titleLarge?.copyWith(
+                      _trOr('piece_detail.photos', 'Fotos'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                         color: cs.onBackground,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: gallery.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 1,
-                          ),
-                      itemBuilder: (context, index) {
-                        final img = gallery[index];
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => FullScreenGallery(
-                                    images: gallery,
-                                    initialIndex: index,
-                                  ),
+                    const SizedBox(height: 12),
+
+                    // un poquito más grande, se ve “pro”
+                    SizedBox(
+                      height: 148,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: galleryUrls.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (context, i) {
+                          final url = galleryUrls[i];
+                          final heroTag = 'gallery_$url';
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () => _openGallery(context, galleryUrls, i),
+                            child: Container(
+                              width: 210,
+                              decoration: BoxDecoration(
+                                color: cs.surfaceVariant,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: cs.outline.withOpacity(0.35),
                                 ),
-                              );
-                            },
-                            child: Image.network(img, fit: BoxFit.cover),
-                          ),
-                        );
-                      },
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(18),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    // ✅ HERO hacia fullscreen
+                                    Hero(
+                                      tag: heroTag,
+                                      child: Image.network(
+                                        url,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Center(
+                                          child: Icon(
+                                            Icons.image_not_supported_outlined,
+                                            color: cs.onSurfaceVariant
+                                                .withOpacity(0.7),
+                                          ),
+                                        ),
+                                        loadingBuilder: (context, child, progress) {
+                                          if (progress == null) return child;
+                                          return Center(
+                                            child: SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.4,
+                                                value:
+                                                    progress.expectedTotalBytes ==
+                                                        null
+                                                    ? null
+                                                    : progress.cumulativeBytesLoaded /
+                                                          (progress
+                                                                  .expectedTotalBytes ??
+                                                              1),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+
+                                    Positioned(
+                                      right: 10,
+                                      bottom: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.45),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.open_in_full_rounded,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ],
 
-                  SizedBox(height: bottomSpacer),
+                  const SizedBox(height: 120),
                 ],
               ),
             ),

@@ -3,71 +3,96 @@ import 'package:disfruta_antofagasta/features/auth/domain/entities/region.dart';
 
 class GuestFormState {
   final String name;
-  final String? visitorType;
+  final int? age;
+  final int? stay;
 
-  final Country? selectedCountry;
-  final List<Country> countries;
-  final List<Region> regions;
-  final int? selectedRegionId;
-  final int? age, stay;
-
-  final bool isLoadingCountries;
-  final bool isLoadingRegions;
   final bool isPosting;
   final String? error;
 
+  final bool isLoadingCountries;
+  final List<Country> countries;
+  final Country? selectedCountry;
+
+  final bool isLoadingRegions;
+  final List<Region> regions;
+  final int? selectedRegionId;
+
+  /// ✅ ahora NO preseleccionamos
+  final String? visitorType;
+
   const GuestFormState({
     this.name = '',
-    this.visitorType,
-    this.selectedCountry,
-    this.countries = const [],
-    this.regions = const [],
     this.age,
     this.stay,
-    this.selectedRegionId,
-    this.isLoadingCountries = false,
-    this.isLoadingRegions = false,
     this.isPosting = false,
     this.error,
+    this.isLoadingCountries = false,
+    this.countries = const [],
+    this.selectedCountry,
+    this.isLoadingRegions = false,
+    this.regions = const [],
+    this.selectedRegionId,
+    this.visitorType,
   });
 
-  String? get countryCode => selectedCountry?.code;
-  bool get needsRegion => (selectedCountry?.regionsCount ?? 0) > 1;
+  /// ✅ Mostrar región solo si:
+  /// - estamos cargando regiones, o
+  /// - ya llegaron regiones (no vacío)
+  bool get needsRegion => isLoadingRegions || regions.isNotEmpty;
 
-  bool get canSubmit =>
-      name.trim().isNotEmpty &&
-      visitorType != null &&
-      countryCode != null &&
-      (!needsRegion || selectedRegionId != null) &&
-      !isPosting;
+  bool get canSubmit {
+    final hasName = name.trim().isNotEmpty;
+    final hasAge = age != null && age! > 1;
+    final hasStay = stay != null && stay! > 0;
+    final hasCountry = selectedCountry != null;
+    final hasVisitor = visitorType != null && visitorType!.trim().isNotEmpty;
+
+    // si needsRegion => region obligatoria
+    final hasRegionOk = !needsRegion || selectedRegionId != null;
+
+    return hasName &&
+        hasAge &&
+        hasStay &&
+        hasCountry &&
+        hasVisitor &&
+        hasRegionOk;
+  }
 
   GuestFormState copyWith({
     String? name,
-    String? visitorType,
-    Country? selectedCountry,
-    List<Country>? countries,
-    List<Region>? regions,
-    int? selectedRegionId,
     int? age,
     int? stay,
-    bool? isLoadingCountries,
-    bool? isLoadingRegions,
     bool? isPosting,
     String? error,
+    bool? isLoadingCountries,
+    List<Country>? countries,
+    Country? selectedCountry,
+    bool? isLoadingRegions,
+    List<Region>? regions,
+    int? selectedRegionId,
+    String? visitorType,
+    bool clearError = false,
+    bool clearSelectedCountry = false,
+    bool clearSelectedRegion = false,
+    bool clearVisitorType = false,
   }) {
     return GuestFormState(
       name: name ?? this.name,
-      visitorType: visitorType ?? this.visitorType,
-      selectedCountry: selectedCountry ?? this.selectedCountry,
-      countries: countries ?? this.countries,
-      regions: regions ?? this.regions,
-      selectedRegionId: selectedRegionId ?? this.selectedRegionId,
       age: age ?? this.age,
       stay: stay ?? this.stay,
-      isLoadingCountries: isLoadingCountries ?? this.isLoadingCountries,
-      isLoadingRegions: isLoadingRegions ?? this.isLoadingRegions,
       isPosting: isPosting ?? this.isPosting,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
+      isLoadingCountries: isLoadingCountries ?? this.isLoadingCountries,
+      countries: countries ?? this.countries,
+      selectedCountry: clearSelectedCountry
+          ? null
+          : (selectedCountry ?? this.selectedCountry),
+      isLoadingRegions: isLoadingRegions ?? this.isLoadingRegions,
+      regions: regions ?? this.regions,
+      selectedRegionId: clearSelectedRegion
+          ? null
+          : (selectedRegionId ?? this.selectedRegionId),
+      visitorType: clearVisitorType ? null : (visitorType ?? this.visitorType),
     );
   }
 }

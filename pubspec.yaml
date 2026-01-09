@@ -3,7 +3,7 @@ description: "Museo RapaNui - Isla de Pascua"
 publish_to: 'none'
 
 # Versión Play Store / App Store
-version: 1.2.1+1
+version: 1.2.2+3
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
@@ -23,7 +23,10 @@ dependencies:
   shimmer: ^3.0.0
   flutter_dotenv: ^6.0.0
   url_launcher: ^6.3.2
+
+  # ✅ Zoom fullscreen PRO (pinch/zoom real + swipe)
   photo_view: ^0.15.0
+
   pdfx: ^2.9.2
   flutter_map: ^8.2.1
   latlong2: ^0.9.1
@@ -56,28 +59,17 @@ flutter:
 
   assets:
     - .env
-
-    # Weather
     - assets/weather/
-
-    # Logos / imágenes
     - assets/logo.png
     - assets/logo_museo.png
     - assets/icon_ios.png
     - assets/bg_portada.png
     - assets/icons/
-
-    # Splash Android 12 (icon con padding)
     - assets/splash/android12_icon.png
-
-    # Idiomas / extras
     - assets/flags/
     - assets/pdf/antofagasta-mapa-turistico-mobile-small.pdf
     - assets/i18n/
 
-# ===========================================
-# 🔥 ICONOS DE LA APP
-# ===========================================
 flutter_launcher_icons:
   android: true
   ios: true
@@ -90,19 +82,12 @@ flutter_launcher_icons:
   image_path_ios: "assets/icon_ios.png"
   remove_alpha_ios: true
 
-# ===========================================
-# 🔥 SPLASH SCREEN NATIVO (DEFINITIVO)
-# ===========================================
 flutter_native_splash:
   color: "#000000"
-
-  # Android < 12 e iOS → logo horizontal completo
   image: assets/logo.png
-
   android: true
   ios: true
 
-  # Android 12+ → icon preparado con padding (NO se recorta)
   android_12:
     color: "#000000"
     image: assets/splash/android12_icon.png

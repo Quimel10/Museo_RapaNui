@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:disfruta_antofagasta/features/auth/domain/entities/country.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/region.dart';
+
 import 'guest_state.dart';
 
-typedef LoadCountriesFn = Future<List<Country>> Function();
-typedef LoadRegionsByCodeFn = Future<List<Region>> Function(String countryCode);
+typedef LoadCountries = Future<List<Country>> Function();
+typedef LoadRegionsByCode = Future<List<Region>> Function(String code);
 
-typedef SubmitGuestFn =
+typedef SubmitGuest =
     Future<void> Function({
       required String name,
       required String countryCode,
@@ -17,9 +19,12 @@ typedef SubmitGuestFn =
     });
 
 class GuestFormNotifier extends StateNotifier<GuestFormState> {
-  final LoadCountriesFn loadCountries;
-  final LoadRegionsByCodeFn loadRegionsByCode;
-  final SubmitGuestFn submitGuest;
+  final LoadCountries loadCountries;
+  final LoadRegionsByCode loadRegionsByCode;
+  final SubmitGuest submitGuest;
+
+  int _countriesReqId = 0;
+  int _regionsReqId = 0;
 
   GuestFormNotifier({
     required this.loadCountries,
@@ -27,107 +32,118 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
     required this.submitGuest,
   }) : super(const GuestFormState());
 
-  int _countriesReqId = 0;
-  int _regionsReqId = 0;
-
   Future<void> bootstrap() async {
-    final rid = ++_countriesReqId;
+    final req = ++_countriesReqId;
 
-    if (!mounted) return;
-    state = state.copyWith(isLoadingCountries: true, error: null);
+    state = state.copyWith(isLoadingCountries: true, clearError: true);
 
     try {
-      final items = await loadCountries();
-      if (!mounted || rid != _countriesReqId) return;
+      final list = await loadCountries();
+      if (req != _countriesReqId) return;
 
-      state = state.copyWith(countries: items);
+      state = state.copyWith(isLoadingCountries: false, countries: list);
     } catch (_) {
-      if (!mounted || rid != _countriesReqId) return;
-      state = state.copyWith(error: 'No se pudieron cargar los países');
-    } finally {
-      if (!mounted || rid != _countriesReqId) return;
-      state = state.copyWith(isLoadingCountries: false);
+      if (req != _countriesReqId) return;
+
+      state = state.copyWith(
+        isLoadingCountries: false,
+        error: 'No pudimos cargar países.',
+      );
     }
   }
 
-  void nameChanged(String v) {
-    if (!mounted) return;
-    state = state.copyWith(name: v, error: null);
-  }
-
-  void visitorTypeChanged(String? v) {
-    if (!mounted) return;
-    state = state.copyWith(visitorType: v, error: null);
-  }
+  void nameChanged(String v) =>
+      state = state.copyWith(name: v, clearError: true);
 
   void ageChanged(String v) {
-    if (!mounted) return;
-    state = state.copyWith(age: int.tryParse(v), error: null);
+    final x = int.tryParse(v.trim());
+    state = state.copyWith(age: x, clearError: true);
   }
 
   void daysStayChanged(String v) {
-    if (!mounted) return;
-    state = state.copyWith(stay: int.tryParse(v), error: null);
+    final x = int.tryParse(v.trim());
+    state = state.copyWith(stay: x, clearError: true);
+  }
+
+  void visitorTypeChanged(String v) {
+    state = state.copyWith(visitorType: v, clearError: true);
   }
 
   Future<void> countryChanged(Country? c) async {
-    if (!mounted) return;
+    if (c == null) return;
 
+    // ✅ Limpia región antes de recargar (evita crash por value inexistente)
     state = state.copyWith(
       selectedCountry: c,
       regions: const [],
-      selectedRegionId: null,
-      error: null,
+      clearSelectedRegion: true,
+      isLoadingRegions: true,
+      clearError: true,
     );
 
-    if (c == null) return;
-
-    // ✅ FIX: SIEMPRE intentamos cargar regiones.
-    // Si el país no tiene, el endpoint devolverá [] y listo.
-    final rid = ++_regionsReqId;
-    state = state.copyWith(isLoadingRegions: true);
+    final req = ++_regionsReqId;
 
     try {
-      final items = await loadRegionsByCode(c.code);
-      if (!mounted || rid != _regionsReqId) return;
+      final regs = await loadRegionsByCode(c.code);
+      if (req != _regionsReqId) return;
 
-      // opcional: filtrar solo activas (por si acaso)
-      final active = items.where((r) => r.active).toList();
-      state = state.copyWith(regions: active);
+      final currentId = state.selectedRegionId;
+      final exists = currentId != null && regs.any((r) => r.id == currentId);
+
+      state = state.copyWith(
+        isLoadingRegions: false,
+        regions: regs,
+        selectedRegionId: exists ? currentId : null,
+      );
     } catch (_) {
-      if (!mounted || rid != _regionsReqId) return;
-      state = state.copyWith(error: 'No se pudieron cargar las regiones');
-    } finally {
-      if (!mounted || rid != _regionsReqId) return;
-      state = state.copyWith(isLoadingRegions: false);
+      if (req != _regionsReqId) return;
+
+      state = state.copyWith(
+        isLoadingRegions: false,
+        regions: const [],
+        clearSelectedRegion: true,
+      );
     }
   }
 
   void regionChanged(int? id) {
-    if (!mounted) return;
-    state = state.copyWith(selectedRegionId: id, error: null);
+    state = state.copyWith(selectedRegionId: id, clearError: true);
   }
 
   Future<void> submit() async {
-    if (!mounted) return;
-    if (!state.canSubmit) return;
+    if (state.isPosting) return;
 
-    state = state.copyWith(isPosting: true, error: null);
+    // ✅ NO preseleccionamos: obliga a elegir
+    if (state.visitorType == null || state.visitorType!.trim().isEmpty) {
+      state = state.copyWith(error: 'Selecciona el tipo de visitante.');
+      return;
+    }
+
+    if (!state.canSubmit) {
+      state = state.copyWith(error: 'Completa los campos requeridos.');
+      return;
+    }
+
+    state = state.copyWith(isPosting: true, clearError: true);
+
     try {
+      final cc = state.selectedCountry!.code.trim().toUpperCase();
+
       await submitGuest(
         name: state.name.trim(),
-        countryCode: state.countryCode!,
-        visitorType: state.visitorType!,
-        regionId: state.selectedRegionId,
-        age: state.age,
+        countryCode: cc,
+        visitorType: state.visitorType!.trim(),
+        regionId: state.needsRegion ? state.selectedRegionId : null,
         day: state.stay,
+        age: state.age,
       );
-    } catch (_) {
-      if (!mounted) return;
-      state = state.copyWith(error: 'Ocurrió un error. Inténtalo nuevamente.');
-    } finally {
-      if (!mounted) return;
+
       state = state.copyWith(isPosting: false);
+    } catch (_) {
+      state = state.copyWith(
+        isPosting: false,
+        error: 'No pudimos ingresar como invitado.',
+      );
     }
   }
 }

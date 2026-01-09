@@ -196,9 +196,11 @@ class _GuestFormState extends ConsumerState<GuestForm> {
 
         const SizedBox(height: 12),
 
-        // ✅ Tipo de visitante (queda abajo del País o abajo de Región si existe)
+        // ✅ Tipo de visitante (placeholder correcto)
         DropdownButtonFormField<String>(
-          value: s.visitorType,
+          value: (s.visitorType == null || s.visitorType!.trim().isEmpty)
+              ? null
+              : s.visitorType,
           isExpanded: true,
           dropdownColor: Colors.white,
           icon: const Icon(

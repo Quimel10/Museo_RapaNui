@@ -151,8 +151,12 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                 items: state.categories!,
                 selectedId: state.selectedCategoryId,
                 padding: EdgeInsets.zero,
-                onChanged: (cat, isSelected) {
-                  if (isSelected) {
+                onChanged: (cat, _) {
+                  // ✅ FIX REAL: solo contar si esto ES una selección nueva
+                  final prevId = ref.read(placeProvider).selectedCategoryId;
+                  final willSelect = prevId != cat.id;
+
+                  if (willSelect) {
                     ref
                         .read(analyticsProvider)
                         .clickCategory(
@@ -160,6 +164,8 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                           meta: {'screen': 'Piezas', 'name': cat.name},
                         );
                   }
+
+                  // selectCategory puede togglear; igual lo llamamos siempre
                   ref.read(placeProvider.notifier).selectCategory(cat.id);
                 },
               ),

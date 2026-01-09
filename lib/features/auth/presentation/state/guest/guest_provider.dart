@@ -10,15 +10,14 @@ import 'guest_state.dart';
 String _normalizeVisitorType(String raw) {
   final v = raw.trim().toLowerCase();
 
-  // Acepta variaciones típicas y las deja “bonitas” como quieres verlas en Analytics
+  // Acepta variaciones típicas y las deja “bonitas” para Analytics
   if (v.contains('local')) return 'Local (RapaNui)';
   if (v.contains('continental')) return 'Continental';
   if (v.contains('extranj')) return 'Extranjero';
 
-  // Si llega ya correcto, lo devuelve tal cual capitalizado mínimo
   if (raw.trim().isNotEmpty) return raw.trim();
 
-  // fallback seguro
+  // fallback seguro (no debería usarse si forzamos a seleccionar)
   return 'Continental';
 }
 
@@ -28,7 +27,7 @@ final guestFormProvider =
       final auth = ref.read(authProvider.notifier);
 
       return GuestFormNotifier(
-        loadCountries: geo.countries,
+        loadCountries: () => geo.countries(),
         loadRegionsByCode: (code) => geo.regionsByCountryCode(code),
         submitGuest:
             ({

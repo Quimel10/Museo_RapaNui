@@ -32,15 +32,15 @@ class RegisterUser {
 
   Map<String, dynamic> toJson() {
     final m = <String, dynamic>{
-      'name': name,
-      'lastname': lastname,
-      'email': email,
+      'name': name.trim(),
+      'lastname': lastname.trim(),
+      'email': email.trim(),
       'password': password,
-      'country_code': countryCode,
+      'country_code': countryCode.trim().toUpperCase(),
       'region_id': regionId,
       'age': age,
       'days_stay': daysStay,
-      'visitor_type': visitorType,
+      'visitor_type': visitorType.trim(),
       'arrival_date': arrivalDate?.toIso8601String(),
       'departure_date': departureDate?.toIso8601String(),
       'device': device,

@@ -1,4 +1,7 @@
+// lib/features/places/presentation/widgets/full_screen_gallery.dart
 import 'package:flutter/material.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 
 class FullScreenGallery extends StatefulWidget {
   final List<String> images;
@@ -15,80 +18,144 @@ class FullScreenGallery extends StatefulWidget {
 }
 
 class _FullScreenGalleryState extends State<FullScreenGallery> {
-  late PageController _pageController;
-  late int currentIndex;
+  late final PageController _controller;
+  int _index = 0;
 
   @override
   void initState() {
     super.initState();
-    currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
+    _index = widget.initialIndex.clamp(
+      0,
+      (widget.images.length - 1).clamp(0, 999999),
+    );
+    _controller = PageController(initialPage: _index);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            PageView.builder(
-              controller: _pageController,
-              itemCount: widget.images.length,
-              onPageChanged: (i) => setState(() => currentIndex = i),
-              itemBuilder: (context, index) {
-                return InteractiveViewer(
-                  minScale: 1,
-                  maxScale: 4,
-                  child: Center(
-                    child: Image.network(
-                      widget.images[index],
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                );
-              },
-            ),
+    final images = widget.images;
 
-            // Indicador arriba
-            Positioned(
-              top: 40,
-              left: 0,
-              right: 0,
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // ✅ GALERÍA PRO (pinch, doble tap, pan suave, sin "cuadro" fijo)
+          PhotoViewGallery.builder(
+            pageController: _controller,
+            itemCount: images.length,
+            onPageChanged: (i) => setState(() => _index = i),
+            scrollPhysics: const BouncingScrollPhysics(),
+            backgroundDecoration: const BoxDecoration(color: Colors.black),
+            loadingBuilder: (context, event) {
+              final expected = event?.expectedTotalBytes;
+              final loaded = event?.cumulativeBytesLoaded ?? 0;
+              final progress = (expected == null || expected == 0)
+                  ? null
+                  : loaded / expected;
+
+              return Center(
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                ),
+              );
+            },
+            builder: (context, index) {
+              final url = images[index];
+
+              return PhotoViewGalleryPageOptions(
+                imageProvider: NetworkImage(url),
+                // ✅ “ver la pieza bien” → que la imagen se adapte y puedas acercar sin límites raros
+                minScale: PhotoViewComputedScale.contained,
+                initialScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 3.2,
+                heroAttributes: PhotoViewHeroAttributes(tag: 'gallery_$url'),
+                // ✅ suaviza el gesto y evita “saltos”
+                filterQuality: FilterQuality.high,
+              );
+            },
+          ),
+
+          // ✅ cerrar (mejor UX: arriba izquierda como foto nativa)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            ),
+          ),
+
+          // ✅ indicador arriba al centro
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Text(
+                  "${_index + 1}/${images.length}",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // ✅ hint pequeño (opcional, pero ayuda a usuarios)
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 18,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
+                    horizontal: 12,
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.black45,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white10),
                   ),
-                  child: Text(
-                    "${currentIndex + 1} / ${widget.images.length}",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
+                  child: const Text(
+                    "Pellizca para zoom • Doble tap para acercar",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
               ),
             ),
-
-            // Botón cerrar
-            Positioned(
-              top: 30,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

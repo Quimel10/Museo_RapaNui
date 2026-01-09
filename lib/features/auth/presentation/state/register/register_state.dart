@@ -1,111 +1,110 @@
-// lib/features/auth/presentation/state/register/register_state.dart
 import 'package:disfruta_antofagasta/features/auth/domain/entities/country.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/entities/region.dart';
 
-/// Valores esperados:
-/// "rapanui" | "continental" | "foreign"
 class RegisterFormState {
-  // existentes
-  final String name, lastName, country, email, password;
-  final int? region, age, stay;
-  final bool accept, isPosting;
+  final String name;
+  final String last;
+  final String email;
+  final String pass;
+
+  final int? age;
+  final int? stay;
+
+  final bool isPosting;
   final String? error;
 
-  // catálogos
-  final List<Country> countries;
-  final List<Region> regions;
-  final Country? selectedCountry;
-  final int? selectedRegionId;
   final bool isLoadingCountries;
-  final bool isLoadingRegions;
+  final List<Country> countries;
+  final Country? selectedCountry;
 
-  /// ✅ NUEVO: tipo de visitante
+  final bool isLoadingRegions;
+  final List<Region> regions;
+  final int? selectedRegionId;
+
+  /// ✅ ahora NO preseleccionamos
   final String? visitorType;
 
   const RegisterFormState({
     this.name = '',
-    this.lastName = '',
-    this.country = '',
-    this.region,
-    this.age,
+    this.last = '',
     this.email = '',
+    this.pass = '',
+    this.age,
     this.stay,
-    this.password = '',
-    this.accept = false,
     this.isPosting = false,
     this.error,
-
-    this.countries = const [],
-    this.regions = const [],
-    this.selectedCountry,
-    this.selectedRegionId,
     this.isLoadingCountries = false,
+    this.countries = const [],
+    this.selectedCountry,
     this.isLoadingRegions = false,
-
-    // ✅ nuevo
+    this.regions = const [],
+    this.selectedRegionId,
     this.visitorType,
   });
 
-  // payload
-  String? get countryCode => selectedCountry?.code;
+  bool get needsRegion => isLoadingRegions || regions.isNotEmpty;
 
-  bool get needsRegion => (selectedCountry?.regionsCount ?? 0) > 1;
+  bool get canSubmit {
+    final hasName = name.trim().isNotEmpty;
+    final hasLast = last.trim().isNotEmpty;
+    final hasEmail = email.trim().isNotEmpty;
+    final hasPass = pass.trim().isNotEmpty;
+    final hasAge = age != null && age! > 1;
+    final hasStay = stay != null && stay! > 0;
+    final hasCountry = selectedCountry != null;
+    final hasVisitor = visitorType != null && visitorType!.trim().isNotEmpty;
 
-  bool get isValid =>
-      name.trim().isNotEmpty &&
-      lastName.trim().isNotEmpty &&
-      email.trim().isNotEmpty &&
-      password.length >= 6 &&
-      accept &&
-      selectedCountry != null &&
-      visitorType != null && // ✅ requerido
-      (!needsRegion || selectedRegionId != null);
+    final hasRegionOk = !needsRegion || selectedRegionId != null;
+
+    return hasName &&
+        hasLast &&
+        hasEmail &&
+        hasPass &&
+        hasAge &&
+        hasStay &&
+        hasCountry &&
+        hasVisitor &&
+        hasRegionOk;
+  }
 
   RegisterFormState copyWith({
     String? name,
-    String? lastName,
-    String? country,
-    int? region,
-    int? age,
+    String? last,
     String? email,
+    String? pass,
+    int? age,
     int? stay,
-    String? password,
-    bool? accept,
     bool? isPosting,
     String? error,
-
-    List<Country>? countries,
-    List<Region>? regions,
-    Country? selectedCountry,
-    int? selectedRegionId,
     bool? isLoadingCountries,
+    List<Country>? countries,
+    Country? selectedCountry,
     bool? isLoadingRegions,
-
-    // ✅ nuevo
+    List<Region>? regions,
+    int? selectedRegionId,
     String? visitorType,
+    bool clearError = false,
+    bool clearSelectedRegion = false,
+    bool clearVisitorType = false,
   }) {
     return RegisterFormState(
       name: name ?? this.name,
-      lastName: lastName ?? this.lastName,
-      country: country ?? this.country,
-      region: region ?? this.region,
-      age: age ?? this.age,
+      last: last ?? this.last,
       email: email ?? this.email,
+      pass: pass ?? this.pass,
+      age: age ?? this.age,
       stay: stay ?? this.stay,
-      password: password ?? this.password,
-      accept: accept ?? this.accept,
       isPosting: isPosting ?? this.isPosting,
-      error: error,
-
-      countries: countries ?? this.countries,
-      regions: regions ?? this.regions,
-      selectedCountry: selectedCountry ?? this.selectedCountry,
-      selectedRegionId: selectedRegionId ?? this.selectedRegionId,
+      error: clearError ? null : (error ?? this.error),
       isLoadingCountries: isLoadingCountries ?? this.isLoadingCountries,
+      countries: countries ?? this.countries,
+      selectedCountry: selectedCountry ?? this.selectedCountry,
       isLoadingRegions: isLoadingRegions ?? this.isLoadingRegions,
-
-      // ✅ nuevo
-      visitorType: visitorType ?? this.visitorType,
+      regions: regions ?? this.regions,
+      selectedRegionId: clearSelectedRegion
+          ? null
+          : (selectedRegionId ?? this.selectedRegionId),
+      visitorType: clearVisitorType ? null : (visitorType ?? this.visitorType),
     );
   }
 }

@@ -187,7 +187,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
               : n.countryChanged,
         ),
 
-        // ✅ Región SOLO si aplica (Chile/Perú). Si Argentina -> no se renderiza.
+        // ✅ Región SOLO si aplica
         if (showRegion) ...[
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
@@ -231,9 +231,11 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
 
         const SizedBox(height: 12),
 
-        // ✅ Tipo de visitante
+        // ✅ Tipo de visitante (placeholder correcto)
         DropdownButtonFormField<String>(
-          value: s.visitorType,
+          value: (s.visitorType == null || s.visitorType!.trim().isEmpty)
+              ? null
+              : s.visitorType,
           isExpanded: true,
           dropdownColor: Colors.white,
           icon: const Icon(
