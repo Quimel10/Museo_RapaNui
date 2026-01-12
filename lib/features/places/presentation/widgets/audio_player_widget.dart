@@ -1,3 +1,4 @@
+// lib/features/places/presentation/widgets/audio_player_widget.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -52,24 +53,26 @@ class AudioPlayerWidget extends ConsumerWidget {
       if (disabled) return;
 
       if (place != null) {
-        // 🔥 CASO IDEAL
+        // ✅ Caso ideal: con PlaceEntity completo
         await notifier.toggleFor(place!);
+        return;
+      }
+
+      // ✅ Fallback: NO inventamos PlaceEntity (porque tu PlaceEntity exige muchos campos)
+      // En su lugar usamos playFromUrl, que ya acepta title/subtitle/image/description.
+      if (!isActive) {
+        await notifier.playFromUrl(
+          url: url,
+          title: title,
+          subtitle: subtitle,
+          place: null,
+          placeId: null,
+          imageUrl: imageUrl,
+          descriptionHtml: descriptionHtml,
+          images: const [], // si tienes una lista, pásala aquí
+        );
       } else {
-        // fallback sin PlaceEntity
-        if (!isActive) {
-          await notifier.playFromPlace(
-            _FakePlace(
-              id: null,
-              titulo: title,
-              descCorta: subtitle,
-              audio: url,
-              imagen: imageUrl,
-              descripcionHtml: descriptionHtml,
-            ),
-          );
-        } else {
-          await notifier.togglePlayPause();
-        }
+        await notifier.togglePlayPause();
       }
     }
 
@@ -114,23 +117,18 @@ class AudioPlayerWidget extends ConsumerWidget {
           stream: audio.positionStream,
           initialData: audio.position,
           builder: (_, snap) {
-            final pos = isActive ? snap.data ?? Duration.zero : Duration.zero;
+            final pos = isActive ? (snap.data ?? Duration.zero) : Duration.zero;
             final dur = isActive
-                ? audio.duration ?? Duration.zero
+                ? (audio.duration ?? Duration.zero)
                 : Duration.zero;
+
+            final maxMs = dur.inMilliseconds == 0 ? 1 : dur.inMilliseconds;
 
             return Column(
               children: [
                 Slider(
-                  value: pos.inMilliseconds
-                      .clamp(
-                        0,
-                        dur.inMilliseconds == 0 ? 1 : dur.inMilliseconds,
-                      )
-                      .toDouble(),
-                  max: dur.inMilliseconds == 0
-                      ? 1
-                      : dur.inMilliseconds.toDouble(),
+                  value: pos.inMilliseconds.clamp(0, maxMs).toDouble(),
+                  max: maxMs.toDouble(),
                   onChanged: disabled
                       ? null
                       : (v) => audio.seek(Duration(milliseconds: v.toInt())),
@@ -155,24 +153,4 @@ class AudioPlayerWidget extends ConsumerWidget {
       ],
     );
   }
-}
-
-/// 🔧 fallback interno SOLO para cuando no hay PlaceEntity
-class _FakePlace implements PlaceEntity {
-  @override
-  final int? id;
-  final String titulo;
-  final String descCorta;
-  final String audio;
-  final String? imagen;
-  final String? descripcionHtml;
-
-  _FakePlace({
-    required this.id,
-    required this.titulo,
-    required this.descCorta,
-    required this.audio,
-    this.imagen,
-    this.descripcionHtml,
-  });
 }

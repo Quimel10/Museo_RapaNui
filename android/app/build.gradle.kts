@@ -11,16 +11,16 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // Seguimos usando Java 11
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // ✅ SUBIR A JAVA 17 (evita problemas con toolchains/dep warnings)
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
 
         // 👇 CLAVE para qr_code_scanner
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -39,10 +39,9 @@ android {
     }
 }
 
-// 👇 NUEVO BLOQUE
 dependencies {
     // Si ya tienes otras deps aquí, déjalas.
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 
 flutter {

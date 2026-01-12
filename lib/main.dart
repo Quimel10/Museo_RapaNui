@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:disfruta_antofagasta/config/constants/enviroment.dart';
 import 'package:disfruta_antofagasta/config/router/app_router.dart';
 import 'package:disfruta_antofagasta/config/theme/theme_provider.dart';
@@ -7,6 +9,7 @@ import 'package:disfruta_antofagasta/shared/screens/app_loading_wrapper.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class NoGlowScrollBehavior extends ScrollBehavior {
   @override
@@ -15,7 +18,18 @@ class NoGlowScrollBehavior extends ScrollBehavior {
     Widget child,
     ScrollableDetails details,
   ) {
-    return child; // ❌ Sin brillo azul, sin nada.
+    return child;
+  }
+}
+
+/// ✅ Android 13+: si no concedes POST_NOTIFICATIONS, no verás el reproductor en notificación.
+Future<void> _ensureAndroidNotificationPermission() async {
+  if (!Platform.isAndroid) return;
+
+  // permission_handler lo maneja internamente por SDK.
+  final status = await Permission.notification.status;
+  if (status.isDenied || status.isRestricted || status.isLimited) {
+    await Permission.notification.request();
   }
 }
 
@@ -24,10 +38,11 @@ Future<void> main() async {
   await EasyLocalization.ensureInitialized();
   await Environment.initEnvironment();
 
+  // ✅ Android 13+ permiso notificaciones
+  await _ensureAndroidNotificationPermission();
+
   // 👇 LEER SESIÓN GUARDADA ANTES DE LEVANTAR LA APP
   final session = await SessionManager.loadSession();
-
-  // Seteamos el flag global para que el router sepa si hay sesión
   SessionFlag.hasPersistedSession = session.hasSession;
 
   runApp(
@@ -37,8 +52,8 @@ Future<void> main() async {
         Locale('en'),
         Locale('pt'),
         Locale('fr'),
-        Locale('it'), // ✅ Italiano
-        Locale('ja'), // ✅ Japonés
+        Locale('it'),
+        Locale('ja'),
       ],
       path: 'assets/i18n',
       fallbackLocale: const Locale('es'),
@@ -72,8 +87,6 @@ class MainApp extends ConsumerWidget {
       darkTheme: darkTheme,
       themeMode: themeMode,
       scrollBehavior: NoGlowScrollBehavior(),
-
-      // ✅ AQUÍ VA EL LOADING GLOBAL
       builder: (context, child) {
         return AppLoadingWrapper(child: child ?? const SizedBox.shrink());
       },

@@ -61,7 +61,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     int initialIndex,
   ) {
     if (images.isEmpty) return;
-
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) =>
@@ -70,85 +69,160 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     );
   }
 
-  // ===========================================================================
-  // ✅ SOLO GALERÍA DEL "PUNTO TURÍSTICO"
-  // ===========================================================================
-  List<String> _extractTouristPointGallery(PlaceEntity p) {
+  // ---------------------------------------------------------------------------
+  // ✅ Extraer imágenes embebidas en HTML (fallback)
+  // ---------------------------------------------------------------------------
+  List<String> _extractImgUrlsFromHtml(String html) {
+    if (html.trim().isEmpty) return [];
+
+    final reg = RegExp(
+      r'(?:src|data-src)\s*=\s*"([^"]+)"',
+      caseSensitive: false,
+    );
+    final matches = reg.allMatches(html);
+
     final out = <String>[];
+    for (final m in matches) {
+      final url = (m.group(1) ?? '').trim();
+      if (url.isEmpty) continue;
+      if (url.startsWith('data:')) continue;
+      out.add(url);
+    }
+    return out;
+  }
 
-    List<String> normalizeList(dynamic v) {
-      if (v is List) {
-        return v
-            .whereType<String>()
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
-      }
-      return const <String>[];
+  // ---------------------------------------------------------------------------
+  // ✅ Canonical key más agresivo para dedup:
+  // - quita query (?ver=)
+  // - normaliza http/https + www
+  // - quita sufijo -300x300
+  // - quita -scaled
+  // - quita -1 / -2 (duplicados WP)
+  // ---------------------------------------------------------------------------
+  String _canonicalKey(String url) {
+    var u = url.trim();
+    if (u.isEmpty) return '';
+
+    // quita query
+    final q = u.indexOf('?');
+    if (q != -1) u = u.substring(0, q);
+
+    // normaliza protocolo + www
+    u = u.replaceFirst(RegExp(r'^https?:\/\/', caseSensitive: false), '');
+    u = u.replaceFirst(RegExp(r'^www\.', caseSensitive: false), '');
+
+    var lower = u.toLowerCase();
+
+    // quita -WIDTHxHEIGHT antes de extensión
+    lower = lower.replaceAllMapped(
+      RegExp(
+        r'-\d{2,5}x\d{2,5}(?=\.(jpg|jpeg|png|webp)$)',
+        caseSensitive: false,
+      ),
+      (m) => '',
+    );
+
+    // quita -scaled antes de extensión
+    lower = lower.replaceAllMapped(
+      RegExp(r'-scaled(?=\.(jpg|jpeg|png|webp)$)', caseSensitive: false),
+      (m) => '',
+    );
+
+    // quita sufijo -1 / -2 / -3 antes de extensión (WP dup)
+    lower = lower.replaceAllMapped(
+      RegExp(r'-\d+(?=\.(jpg|jpeg|png|webp)$)', caseSensitive: false),
+      (m) => '',
+    );
+
+    return lower;
+  }
+
+  // ---------------------------------------------------------------------------
+  // ✅ Score de "calidad" para elegir la mejor URL cuando hay duplicados
+  // Más alto = mejor.
+  // ---------------------------------------------------------------------------
+  int _qualityScore(String url) {
+    final u = url.toLowerCase();
+
+    int score = 1000;
+
+    // penaliza thumbnails
+    if (u.contains('thumb') || u.contains('thumbnail')) score -= 400;
+
+    // penaliza sizes típicos
+    if (RegExp(r'-\d{2,5}x\d{2,5}\.(jpg|jpeg|png|webp)$').hasMatch(u)) {
+      score -= 250;
     }
 
-    Map<String, dynamic>? asMap(dynamic v) {
-      if (v is Map<String, dynamic>) return v;
-      if (v is Map) return Map<String, dynamic>.from(v);
-      return null;
+    // penaliza scaled (a veces WP lo usa como "derivado")
+    if (u.contains('-scaled.')) score -= 80;
+
+    // bonus si parece "full" / "large" / "original"
+    if (u.contains('full') || u.contains('large') || u.contains('original')) {
+      score += 60;
     }
 
-    try {
-      final dynamic any = p;
+    return score;
+  }
 
-      final candidates = <dynamic>[
-        any.infoPuntoTuristico,
-        any.infoPuntoTuristicoData,
-        any.puntoTuristico,
-        any.punto_turistico,
-        any.touristPoint,
-        any.tourist_point,
-      ];
+  // ---------------------------------------------------------------------------
+  // ✅ Build galería final:
+  // - Usa SOLO 1 hero (el mejor disponible)
+  // - Dedup por canonicalKey
+  // - Si choca, reemplaza por mejor calidad
+  // Orden de preferencia de fuentes:
+  // 1) hero (best)
+  // 2) imgMedium
+  // 3) imgThumb
+  // 4) <img> del HTML
+  // ---------------------------------------------------------------------------
+  List<String> _buildGallery({
+    required String heroHigh,
+    required String hero,
+    required List<String> imgMedium,
+    required List<String> imgThumb,
+    required String html,
+  }) {
+    final heroBest = heroHigh.trim().isNotEmpty ? heroHigh.trim() : hero.trim();
 
-      for (final node in candidates) {
-        final m = asMap(node);
-        if (m == null) continue;
+    final candidates = <String>[
+      if (heroBest.isNotEmpty) heroBest,
+      ...imgMedium.map((e) => e.trim()),
+      ...imgThumb.map((e) => e.trim()),
+      ..._extractImgUrlsFromHtml(html).map((e) => e.trim()),
+    ].where((e) => e.isNotEmpty).toList();
 
-        final keys = [
-          'galeriaFotos',
-          'galeria_fotos',
-          'galeria',
-          'gallery',
-          'fotos',
-          'images',
-          'imagenes',
-        ];
+    // Mantenemos orden, pero guardamos el "mejor" por key.
+    final keysInOrder = <String>[];
+    final bestUrlByKey = <String, String>{};
+    final bestScoreByKey = <String, int>{};
 
-        for (final k in keys) {
-          if (m.containsKey(k)) {
-            final list = normalizeList(m[k]);
-            if (list.isNotEmpty) {
-              out.addAll(list);
-              break;
-            }
-          }
+    for (final url in candidates) {
+      final key = _canonicalKey(url);
+      if (key.isEmpty) continue;
+
+      final score = _qualityScore(url);
+
+      if (!bestUrlByKey.containsKey(key)) {
+        bestUrlByKey[key] = url;
+        bestScoreByKey[key] = score;
+        keysInOrder.add(key);
+      } else {
+        final currentScore = bestScoreByKey[key] ?? -999999;
+        if (score > currentScore) {
+          bestUrlByKey[key] = url;
+          bestScoreByKey[key] = score;
         }
-
-        if (out.isNotEmpty) break;
       }
-    } catch (_) {}
-
-    // fallback (por si tu endpoint viejo solo manda imgMedium)
-    if (out.isEmpty) {
-      try {
-        final dynamic any = p;
-        final dynamic med = any.imgMedium;
-        final list = normalizeList(med);
-        if (list.isNotEmpty) out.addAll(list);
-      } catch (_) {}
     }
 
-    final seen = <String>{};
-    final dedup = <String>[];
-    for (final u in out) {
-      if (seen.add(u)) dedup.add(u);
+    final out = <String>[];
+    for (final k in keysInOrder) {
+      final u = bestUrlByKey[k];
+      if (u != null && u.trim().isNotEmpty) out.add(u.trim());
     }
-    return dedup;
+
+    return out;
   }
 
   @override
@@ -211,21 +285,36 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     final String titulo = p.titulo.toString();
     final String tipo = p.tipo.toString();
 
-    final String heroImage =
-        (p.imagenHigh?.toString().trim().isNotEmpty == true)
-        ? p.imagenHigh!.toString()
-        : (p.imagen?.toString() ?? '');
+    final String heroHigh = p.imagenHigh.toString();
+    final String hero = p.imagen.toString();
+
+    final String heroImage = (heroHigh.trim().isNotEmpty)
+        ? heroHigh.trim()
+        : hero.trim();
 
     final String descHtml =
         (p.descLargaHtml?.toString().trim().isNotEmpty == true)
         ? p.descLargaHtml!.toString()
-        : (p.descLarga?.toString() ?? '');
+        : p.descLarga.toString();
 
-    final String? audioUrl = (p.audio?.toString().trim().isNotEmpty == true)
-        ? p.audio!.toString().trim()
+    final String? audioUrl = (p.audio.toString().trim().isNotEmpty)
+        ? p.audio.toString().trim()
         : null;
 
-    final galleryUrls = _extractTouristPointGallery(p);
+    final galleryUrls = _buildGallery(
+      heroHigh: heroHigh,
+      hero: hero,
+      imgMedium: p.imgMedium,
+      imgThumb: p.imgThumb,
+      html: descHtml,
+    );
+
+    // ignore: avoid_print
+    print(
+      "🖼️ GALLERY FINAL => ${galleryUrls.length} | "
+      "hero: ${heroImage.isNotEmpty ? heroImage : '(none)'} | "
+      "first: ${galleryUrls.isNotEmpty ? galleryUrls.first : '(none)'}",
+    );
 
     final playLabel = _trOr(
       'piece_detail.play_audio_button',
@@ -255,7 +344,31 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: heroImage.isNotEmpty
-                  ? Image.network(heroImage, fit: BoxFit.cover)
+                  ? GestureDetector(
+                      onTap: galleryUrls.isEmpty
+                          ? null
+                          : () => _openGallery(context, galleryUrls, 0),
+                      child: Image.network(
+                        heroImage,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Container(color: cs.surfaceVariant),
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            color: cs.surfaceVariant,
+                            alignment: Alignment.center,
+                            child: const SizedBox(
+                              width: 26,
+                              height: 26,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    )
                   : Container(color: cs.surfaceVariant),
             ),
           ),
@@ -335,7 +448,9 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                                 subtitle: tipo,
                                                 placeId: p.id,
                                                 place: p,
+                                                images: galleryUrls,
                                                 imageUrl: heroImage,
+
                                                 descriptionHtml: descHtml,
                                               );
                                             } else {
@@ -403,9 +518,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                   const SizedBox(height: 28),
                   Html(data: descHtml),
 
-                  // =======================
-                  // ✅ GALERÍA (con HERO)
-                  // =======================
                   if (galleryUrls.isNotEmpty) ...[
                     const SizedBox(height: 22),
                     Text(
@@ -416,8 +528,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // un poquito más grande, se ve “pro”
                     SizedBox(
                       height: 148,
                       child: ListView.separated(
@@ -426,7 +536,9 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                         separatorBuilder: (_, __) => const SizedBox(width: 12),
                         itemBuilder: (context, i) {
                           final url = galleryUrls[i];
-                          final heroTag = 'gallery_$url';
+
+                          // ✅ Tag estable, evita problemas cuando URL cambia / dup
+                          final heroTag = 'gallery_${p.id}_$i';
 
                           return InkWell(
                             borderRadius: BorderRadius.circular(18),
@@ -445,7 +557,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                 child: Stack(
                                   fit: StackFit.expand,
                                   children: [
-                                    // ✅ HERO hacia fullscreen
                                     Hero(
                                       tag: heroTag,
                                       child: Image.network(
@@ -480,7 +591,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                         },
                                       ),
                                     ),
-
                                     Positioned(
                                       right: 10,
                                       bottom: 10,

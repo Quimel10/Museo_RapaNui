@@ -1,10 +1,11 @@
+// lib/shared/provider/now_playing_provider.dart
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
-import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
-import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
+import '../audio/audio_player_service.dart';
+import '../../features/home/domain/entities/place.dart';
 
 final nowPlayingProvider =
     StateNotifierProvider<NowPlayingNotifier, NowPlayingState>(
@@ -22,6 +23,7 @@ class NowPlayingState {
 
   final PlaceEntity? place;
   final String? imageUrl;
+  final List<String> images; // ✅ NUEVO: galería completa para el player
   final String? descriptionHtml;
 
   const NowPlayingState({
@@ -33,6 +35,7 @@ class NowPlayingState {
     this.isBusy = false,
     this.place,
     this.imageUrl,
+    this.images = const <String>[], // ✅ default seguro
     this.descriptionHtml,
   });
 
@@ -47,6 +50,7 @@ class NowPlayingState {
     bool? isBusy,
     PlaceEntity? place,
     String? imageUrl,
+    List<String>? images,
     String? descriptionHtml,
   }) {
     return NowPlayingState(
@@ -58,6 +62,7 @@ class NowPlayingState {
       isBusy: isBusy ?? this.isBusy,
       place: place ?? this.place,
       imageUrl: imageUrl ?? this.imageUrl,
+      images: images ?? this.images,
       descriptionHtml: descriptionHtml ?? this.descriptionHtml,
     );
   }
@@ -69,151 +74,81 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
 
   StreamSubscription<PlayerState>? _psSub;
 
-  // 🔒 serializa comandos (evita carreras)
-  Future<void> _queue = Future.value();
-
   NowPlayingNotifier(this.ref)
     : _audio = ref.read(audioPlayerProvider),
       super(const NowPlayingState()) {
+    // Fuente única de verdad para el estado playing/busy
     _psSub = _audio.playerStateStream.listen((ps) {
       if (!mounted) return;
-      // 👇 no rompas isBusy / metadata: solo actualiza isPlaying
+
       state = state.copyWith(isPlaying: ps.playing);
+
+      // ✅ Libera busy cuando el player ya respondió
+      if (state.isBusy) {
+        final s = ps.processingState;
+        if (s == ProcessingState.loading ||
+            s == ProcessingState.buffering ||
+            s == ProcessingState.ready ||
+            s == ProcessingState.completed) {
+          state = state.copyWith(isBusy: false);
+        }
+      }
     });
 
     state = state.copyWith(isPlaying: _audio.isPlaying);
   }
 
-  // ─────────────────────────────
-  // Helpers tolerantes a PlaceEntity
-  // ─────────────────────────────
-  int? _id(PlaceEntity p) {
-    final d = p as dynamic;
-    try {
-      return d.id as int?;
-    } catch (_) {
-      return null;
+  // ------------------------------------------------------------
+  // Helpers internos
+  // ------------------------------------------------------------
+  List<String> _sanitizeImages(List<String>? input, {String? fallback}) {
+    final seen = <String>{};
+    final out = <String>[];
+
+    void addOne(String? u) {
+      final x = (u ?? '').trim();
+      if (x.isEmpty) return;
+      if (seen.add(x)) out.add(x);
     }
-  }
 
-  String _title(PlaceEntity p) {
-    final d = p as dynamic;
-    try {
-      return (d.titulo ?? '').toString();
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _subtitle(PlaceEntity p) {
-    final d = p as dynamic;
-    try {
-      final v = (d.tipo ?? '')
-          .toString(); // mejor que descCorta como "subtitle"
-      return v;
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String? _audioUrl(PlaceEntity p) {
-    final d = p as dynamic;
-    try {
-      final v = (d.audio ?? '').toString().trim();
-      if (v.isNotEmpty) return v;
-    } catch (_) {}
-    try {
-      final v = (d.audioUrl ?? '').toString().trim();
-      if (v.isNotEmpty) return v;
-    } catch (_) {}
-    try {
-      final v = (d.audio_url ?? '').toString().trim();
-      if (v.isNotEmpty) return v;
-    } catch (_) {}
-    return null;
-  }
-
-  String? _imageUrl(PlaceEntity p) {
-    final d = p as dynamic;
-    try {
-      final v = (d.imagenHigh ?? '').toString().trim();
-      if (v.isNotEmpty) return v;
-    } catch (_) {}
-    try {
-      final v = (d.imagen ?? '').toString().trim();
-      if (v.isNotEmpty) return v;
-    } catch (_) {}
-    return null;
-  }
-
-  String? _descriptionHtml(PlaceEntity p) {
-    final d = p as dynamic;
-    try {
-      final v = (d.descLargaHtml ?? '').toString();
-      if (v.trim().isNotEmpty) return v;
-    } catch (_) {}
-    try {
-      final v = (d.descLarga ?? '').toString();
-      if (v.trim().isNotEmpty) return v;
-    } catch (_) {}
-    try {
-      final v = (d.desc_larga ?? '').toString();
-      if (v.trim().isNotEmpty) return v;
-    } catch (_) {}
-    return null;
-  }
-
-  // ─────────────────────────────
-  // Lock
-  // ─────────────────────────────
-  Future<void> _runLocked(Future<void> Function() action) {
-    _queue = _queue.then((_) async {
-      if (!mounted) return;
-      state = state.copyWith(isBusy: true);
-      try {
-        await action();
-      } finally {
-        if (mounted) state = state.copyWith(isBusy: false);
+    if (input != null) {
+      for (final u in input) {
+        addOne(u);
       }
-    });
-    return _queue;
+    }
+
+    // fallback (si no vienen imágenes)
+    if (out.isEmpty) addOne(fallback);
+
+    return out;
   }
 
-  // ─────────────────────────────
-  // API
-  // ─────────────────────────────
+  // ============================================================
+  // ✅ API COMPATIBLE CON TU UI ACTUAL
+  // ============================================================
 
-  /// ✅ Usado por Home/cards
-  Future<void> playFromPlace(PlaceEntity place) {
-    final url = (_audioUrl(place) ?? '').trim();
-    if (url.isEmpty) return Future.value();
+  Future<void> playFromPlace(PlaceEntity place) async {
+    final url = place.audio.trim();
+    if (url.isEmpty) return;
 
-    return _runLocked(() async {
-      final isSame = (state.url ?? '') == url;
+    final hero = (place.imagenHigh?.isNotEmpty == true)
+        ? place.imagenHigh
+        : place.imagen;
 
-      // set metadata antes de arrancar
-      state = NowPlayingState(
-        url: url,
-        title: _title(place),
-        subtitle: _subtitle(place),
-        placeId: _id(place),
-        place: place,
-        imageUrl: _imageUrl(place),
-        descriptionHtml: _descriptionHtml(place),
-        isPlaying: state.isPlaying,
-        isBusy: true,
-      );
-
-      if (!isSame) {
-        await _audio.setUrl(url); // ✅ esperar SOLO carga
-      }
-
-      // ❌ NO await play() — si no, se “ocupa” hasta el final del track
-      unawaited(_audio.play());
-    });
+    await playFromUrl(
+      url: url,
+      title: place.titulo,
+      subtitle: place.tipo,
+      placeId: place.id,
+      place: place,
+      imageUrl: hero,
+      images: const [], // si desde aquí no pasas lista, queda con fallback hero
+      descriptionHtml: (place.descLargaHtml?.isNotEmpty == true)
+          ? place.descLargaHtml
+          : place.descLarga,
+    );
   }
 
-  /// ✅ COMPAT: lo llama PlaceDetails
   Future<void> playFromUrl({
     required String url,
     required String title,
@@ -221,76 +156,82 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
     int? placeId,
     PlaceEntity? place,
     String? imageUrl,
+    List<String> images = const <String>[], // ✅ NUEVO
     String? descriptionHtml,
-  }) {
+  }) async {
     final clean = url.trim();
-    if (clean.isEmpty) return Future.value();
+    if (clean.isEmpty) return;
 
-    return _runLocked(() async {
-      final isSame = (state.url ?? '') == clean;
+    final isSame = (state.url ?? '') == clean;
 
-      state = NowPlayingState(
-        url: clean,
-        title: title,
-        subtitle: subtitle,
-        placeId: placeId,
-        place: place,
-        imageUrl: imageUrl,
-        descriptionHtml: descriptionHtml,
-        isPlaying: state.isPlaying,
-        isBusy: true,
-      );
+    final imgs = _sanitizeImages(images, fallback: imageUrl);
 
+    state = state.copyWith(
+      url: clean,
+      title: title,
+      subtitle: subtitle,
+      placeId: placeId,
+      place: place,
+      imageUrl: imageUrl,
+      images: imgs, // ✅ guarda la galería
+      descriptionHtml: descriptionHtml,
+      isBusy: true,
+    );
+
+    try {
       if (!isSame) {
-        await _audio.setUrl(clean);
+        await _audio.setUrl(
+          clean,
+          title: title,
+          subtitle: subtitle,
+          artUri: imageUrl,
+        );
       }
 
-      unawaited(_audio.play());
-    });
+      await _audio.play();
+    } finally {
+      if (mounted) state = state.copyWith(isBusy: false);
+    }
   }
 
-  /// ✅ COMPAT: llamadas viejas
-  Future<void> playFromMeta({
-    required String url,
-    required String title,
-    String subtitle = '',
-    int? placeId,
-    PlaceEntity? place,
-    String? imageUrl,
-    String? descriptionHtml,
-  }) => playFromUrl(
-    url: url,
-    title: title,
-    subtitle: subtitle,
-    placeId: placeId,
-    place: place,
-    imageUrl: imageUrl,
-    descriptionHtml: descriptionHtml,
-  );
-
-  Future<void> pause() => _runLocked(() async {
-    if (_audio.isPlaying) {
-      await _audio.pause(); // pause sí se puede await
-    }
-  });
-
-  Future<void> resume() => _runLocked(() async {
-    // ❌ no await play()
-    unawaited(_audio.play());
-  });
-
-  Future<void> toggle() => _runLocked(() async {
+  Future<void> toggle() async {
     if (_audio.isPlaying) {
       await _audio.pause();
     } else {
-      unawaited(_audio.play());
+      await _audio.play();
     }
-  });
+  }
 
-  Future<void> clear() => _runLocked(() async {
+  // ✅ Alias por compatibilidad (por si algún widget viejo lo llama)
+  Future<void> togglePlayPause() => toggle();
+
+  /// usados por now_playing_player.dart / otros
+  Future<void> resume() => _audio.play();
+  Future<void> pause() => _audio.pause();
+
+  Future<void> rewind10() async {
+    final current = _audio.position;
+    final target = current - const Duration(seconds: 10);
+    await _audio.seek(target < Duration.zero ? Duration.zero : target);
+  }
+
+  Future<void> forward10() async {
+    final current = _audio.position;
+    final d = _audio.duration ?? Duration.zero;
+
+    final target = current + const Duration(seconds: 10);
+    if (d == Duration.zero) {
+      await _audio.seek(target);
+      return;
+    }
+
+    await _audio.seek(target > d ? d : target);
+  }
+
+  Future<void> clear() async {
     await _audio.stop();
     state = const NowPlayingState();
-  });
+  }
 
   @override
   void dispose() {

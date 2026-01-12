@@ -125,36 +125,6 @@ class _FullScreenGalleryState extends State<FullScreenGallery> {
               ),
             ),
           ),
-
-          // ✅ hint pequeño (opcional, pero ayuda a usuarios)
-          Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 18,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black45,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: const Text(
-                    "Pellizca para zoom • Doble tap para acercar",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );

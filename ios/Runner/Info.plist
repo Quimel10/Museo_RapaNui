@@ -1,68 +1,94 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-	<dict>
-		<key>CFBundleDevelopmentRegion</key>
-		<string>$(DEVELOPMENT_LANGUAGE)</string>
-		<key>CFBundleDisplayName</key>
-		<string>Museo RapaNui</string>
-		<key>CFBundleExecutable</key>
-		<string>$(EXECUTABLE_NAME)</string>
-		<key>CFBundleIdentifier</key>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-		<key>CFBundleInfoDictionaryVersion</key>
-		<string>6.0</string>
-		<key>CFBundleName</key>
-		<string>Museo RapaNui</string>
-		<key>CFBundlePackageType</key>
-		<string>APPL</string>
-		<key>CFBundleShortVersionString</key>
-		<string>$(FLUTTER_BUILD_NAME)</string>
-		<key>CFBundleSignature</key>
-		<string>????</string>
-		<key>CFBundleVersion</key>
-		<string>$(FLUTTER_BUILD_NUMBER)</string>
-		<key>LSRequiresIPhoneOS</key>
-		<true/>
-		<key>UILaunchStoryboardName</key>
-		<string>LaunchScreen</string>
-		<key>UIMainStoryboardFile</key>
-		<string>Main</string>
-		<key>UISupportedInterfaceOrientations</key>
-		<array>
-			<string>UIInterfaceOrientationPortrait</string>
-			<string>UIInterfaceOrientationLandscapeLeft</string>
-			<string>UIInterfaceOrientationLandscapeRight</string>
-		</array>
-		<key>UISupportedInterfaceOrientations~ipad</key>
-		<array>
-			<string>UIInterfaceOrientationPortrait</string>
-			<string>UIInterfaceOrientationPortraitUpsideDown</string>
-			<string>UIInterfaceOrientationLandscapeLeft</string>
-			<string>UIInterfaceOrientationLandscapeRight</string>
-		</array>
-		<key>CADisableMinimumFrameDurationOnPhone</key>
-		<true/>
-		<key>UIApplicationSupportsIndirectInputEvents</key>
-		<true/>
-		<key>UIStatusBarHidden</key>
-		<false/>
-		<!-- ========================================================== -->
-		<!-- 🔐 PERMISOS REQUERIDOS POR APPLE PARA APROBAR EL BUILD     -->
-		<!-- ========================================================== -->
-		<!-- Cámara → Para escanear códigos QR -->
-		<key>NSCameraUsageDescription</key>
-		<string>La cámara se utiliza exclusivamente para escanear los códigos QR de las piezas del Museo RapaNui.</string>
-		<!-- Micrófono → Para reproducir audios (librerías pueden requerirlo) -->
-		<key>NSMicrophoneUsageDescription</key>
-		<string>El micrófono se utiliza para reproducir contenidos de audio asociados a las piezas del Museo RapaNui.</string>
-		<!-- Fotos → Requerido por frameworks multimedia -->
-		<key>NSPhotoLibraryUsageDescription</key>
-		<string>La aplicación puede acceder a la biblioteca de fotos si es necesario para mejorar la experiencia del museo.</string>
-		<!-- Bluetooth → Algunas librerías lo llaman indirectamente -->
-		<key>NSBluetoothAlwaysUsageDescription</key>
-		<string>Bluetooth puede utilizarse para interactuar con dispositivos cercanos durante la visita al museo.</string>
-		<key>NSBluetoothPeripheralUsageDescription</key>
-		<string>Bluetooth puede utilizarse para detectar o comunicarse con dispositivos cercanos cuando sea necesario.</string>
-	</dict>
+  <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>Museo RapaNui</string>
+
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+
+    <key>CFBundleName</key>
+    <string>Museo RapaNui</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>$(FLUTTER_BUILD_NAME)</string>
+
+    <key>CFBundleSignature</key>
+    <string>????</string>
+
+    <key>CFBundleVersion</key>
+    <string>$(FLUTTER_BUILD_NUMBER)</string>
+
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+
+    <key>UIMainStoryboardFile</key>
+    <string>Main</string>
+
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+      <string>UIInterfaceOrientationPortrait</string>
+      <string>UIInterfaceOrientationLandscapeLeft</string>
+      <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+      <string>UIInterfaceOrientationPortrait</string>
+      <string>UIInterfaceOrientationPortraitUpsideDown</string>
+      <string>UIInterfaceOrientationLandscapeLeft</string>
+      <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+
+    <key>UIApplicationSupportsIndirectInputEvents</key>
+    <true/>
+
+    <key>UIStatusBarHidden</key>
+    <false/>
+
+    <!-- ✅ Background audio -->
+    <key>UIBackgroundModes</key>
+    <array>
+      <string>audio</string>
+    </array>
+
+    <!-- Cámara -->
+    <key>NSCameraUsageDescription</key>
+    <string>La cámara se utiliza exclusivamente para escanear los códigos QR de las piezas del Museo RapaNui.</string>
+
+    <!-- Micrófono -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>El micrófono se utiliza para reproducir contenidos de audio asociados a las piezas del Museo RapaNui.</string>
+
+    <!-- Fotos -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>La aplicación puede acceder a la biblioteca de fotos si es necesario para mejorar la experiencia del museo.</string>
+
+    <!-- Bluetooth -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Bluetooth puede utilizarse para interactuar con dispositivos cercanos durante la visita al museo.</string>
+
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>Bluetooth puede utilizarse para detectar o comunicarse con dispositivos cercanos cuando sea necesario.</string>
+
+  </dict>
 </plist>
