@@ -23,7 +23,7 @@ class NowPlayingState {
 
   final PlaceEntity? place;
   final String? imageUrl;
-  final List<String> images; // ✅ NUEVO: galería completa para el player
+  final List<String> images;
   final String? descriptionHtml;
 
   const NowPlayingState({
@@ -35,7 +35,7 @@ class NowPlayingState {
     this.isBusy = false,
     this.place,
     this.imageUrl,
-    this.images = const <String>[], // ✅ default seguro
+    this.images = const <String>[],
     this.descriptionHtml,
   });
 
@@ -74,16 +74,45 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
 
   StreamSubscription<PlayerState>? _psSub;
 
+  // ✅ Guard para evitar loops cuando hacemos pause/seek en completed
+  bool _handlingCompleted = false;
+
   NowPlayingNotifier(this.ref)
     : _audio = ref.read(audioPlayerProvider),
       super(const NowPlayingState()) {
-    // Fuente única de verdad para el estado playing/busy
     _psSub = _audio.playerStateStream.listen((ps) {
       if (!mounted) return;
 
+      // 1) Siempre reflejar "playing"
       state = state.copyWith(isPlaying: ps.playing);
 
-      // ✅ Libera busy cuando el player ya respondió
+      // 2) Si termina el audio -> NO reanudar
+      if (ps.processingState == ProcessingState.completed) {
+        // Evita doble ejecución si el stream emite varias veces completed
+        if (_handlingCompleted) return;
+        _handlingCompleted = true;
+
+        // UI: queda en pausa y no busy
+        state = state.copyWith(isPlaying: false, isBusy: false);
+
+        // Player: aseguramos pausa/stop lógico + volver a 0 SIN reproducir
+        unawaited(() async {
+          try {
+            // por seguridad: fuerza a que NO siga reproduciendo
+            await _audio.pause();
+
+            // vuelve al inicio
+            await _audio.seek(Duration.zero);
+          } catch (_) {
+            // no-op
+          } finally {
+            // suelta el guard en el próximo microtask
+            Future.microtask(() => _handlingCompleted = false);
+          }
+        }());
+      }
+
+      // 3) Libera busy cuando el player ya respondió
       if (state.isBusy) {
         final s = ps.processingState;
         if (s == ProcessingState.loading ||
@@ -117,10 +146,20 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
       }
     }
 
-    // fallback (si no vienen imágenes)
     if (out.isEmpty) addOne(fallback);
 
     return out;
+  }
+
+  bool _isCompletedOrAtEnd() {
+    final ps = _audio.player.playerState;
+    if (ps.processingState == ProcessingState.completed) return true;
+
+    final d = _audio.duration;
+    if (d == null || d == Duration.zero) return false;
+
+    final pos = _audio.position;
+    return (d - pos) <= const Duration(milliseconds: 200);
   }
 
   // ============================================================
@@ -142,7 +181,7 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
       placeId: place.id,
       place: place,
       imageUrl: hero,
-      images: const [], // si desde aquí no pasas lista, queda con fallback hero
+      images: const <String>[],
       descriptionHtml: (place.descLargaHtml?.isNotEmpty == true)
           ? place.descLargaHtml
           : place.descLarga,
@@ -156,7 +195,7 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
     int? placeId,
     PlaceEntity? place,
     String? imageUrl,
-    List<String> images = const <String>[], // ✅ NUEVO
+    List<String> images = const <String>[],
     String? descriptionHtml,
   }) async {
     final clean = url.trim();
@@ -173,7 +212,7 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
       placeId: placeId,
       place: place,
       imageUrl: imageUrl,
-      images: imgs, // ✅ guarda la galería
+      images: imgs,
       descriptionHtml: descriptionHtml,
       isBusy: true,
     );
@@ -186,6 +225,12 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
           subtitle: subtitle,
           artUri: imageUrl,
         );
+      } else {
+        // ✅ Si es el mismo audio y estaba al final: vuelve a 0
+        // (pero NO reproduce hasta que el usuario lo pida; play() lo hará)
+        if (_isCompletedOrAtEnd()) {
+          await _audio.seek(Duration.zero);
+        }
       }
 
       await _audio.play();
@@ -197,16 +242,26 @@ class NowPlayingNotifier extends StateNotifier<NowPlayingState> {
   Future<void> toggle() async {
     if (_audio.isPlaying) {
       await _audio.pause();
-    } else {
-      await _audio.play();
+      return;
     }
+
+    // Si estaba terminado, vuelve al inicio ANTES de play
+    if (_isCompletedOrAtEnd()) {
+      await _audio.seek(Duration.zero);
+    }
+
+    await _audio.play();
   }
 
-  // ✅ Alias por compatibilidad (por si algún widget viejo lo llama)
   Future<void> togglePlayPause() => toggle();
 
-  /// usados por now_playing_player.dart / otros
-  Future<void> resume() => _audio.play();
+  Future<void> resume() async {
+    if (_isCompletedOrAtEnd()) {
+      await _audio.seek(Duration.zero);
+    }
+    await _audio.play();
+  }
+
   Future<void> pause() => _audio.pause();
 
   Future<void> rewind10() async {
