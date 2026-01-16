@@ -1,4 +1,7 @@
 // lib/features/auth/infrastructure/datasources/auth_datasource_impl.dart
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
+
 import 'package:dio/dio.dart';
 import 'package:disfruta_antofagasta/config/constants/enviroment.dart';
 import 'package:disfruta_antofagasta/features/auth/domain/datasources/auth_datasource.dart';
@@ -15,10 +18,13 @@ import 'package:disfruta_antofagasta/shared/services/key_value_storage_service.d
 
 class AuthDataSourceImpl extends AuthDataSource {
   final Dio dio;
-  late final KeyValueStorageService keyValueStorageService;
+  final KeyValueStorageService keyValueStorageService;
 
   // Cache: countryId -> countryCode
   final Map<int, String> _countryIdToCode = {};
+
+  // ✅ Cache countries RAW JSON por idioma
+  static const _countriesCacheKeyPrefix = 'geo_countries_v1_';
 
   AuthDataSourceImpl({Dio? dio, required this.keyValueStorageService})
     : dio = dio ?? Dio(BaseOptions(baseUrl: Environment.apiUrl)) {
@@ -93,6 +99,14 @@ class AuthDataSourceImpl extends AuthDataSource {
       pathSegments: merged,
       queryParameters: query,
     );
+  }
+
+  void _rebuildCountryIdCache(List<Country> list) {
+    _countryIdToCode.clear();
+    for (final c in list) {
+      final code = c.code.trim().toUpperCase();
+      if (code.isNotEmpty) _countryIdToCode[c.id] = code;
+    }
   }
 
   // ===========================================================================
@@ -184,46 +198,186 @@ class AuthDataSourceImpl extends AuthDataSource {
   }
 
   // ===========================================================================
-  // ✅ WP GEO
+  // ✅ WP GEO - COUNTRIES OFFLINE (cache raw json + fallback asset)
+  //    Compatible con 2 rutas:
+  //    A) /wp-json/app/v1/countries
+  //    B) /wp-json/app/v1/antofa/geo/countries  (la que sale en tu log)
   // ===========================================================================
 
   @override
   Future<List<Country>> countries({CancelToken? cancelToken}) async {
     final lang = await _getLangForApi();
+    final cacheKey = '$_countriesCacheKeyPrefix$lang';
 
-    final uri = _wpEndpointUri(
+    // 1) Cache primero
+    final cachedRaw = await keyValueStorageService.getValue<String>(cacheKey);
+    final cached = _parseCountriesFromRaw(cachedRaw);
+    if (cached.isNotEmpty) {
+      _refreshCountriesInBackground(lang, cacheKey, cancelToken);
+      // ignore: avoid_print
+      print('✅ COUNTRIES from CACHE => ${cached.length}');
+      return cached;
+    }
+
+    // 2) Red (compat: prueba ambas rutas)
+    try {
+      final fresh = await _fetchCountriesFromNetworkCompat(lang, cancelToken);
+      if (fresh.raw.isNotEmpty) {
+        await keyValueStorageService.setKeyValue(
+          cacheKey,
+          jsonEncode(fresh.raw),
+        );
+      }
+      // ignore: avoid_print
+      print('✅ COUNTRIES from NETWORK => ${fresh.countries.length}');
+      return fresh.countries;
+    } catch (e) {
+      // ignore: avoid_print
+      print('❌ COUNTRIES network error => $e');
+
+      // 3) Fallback SIEMPRE
+      final fallback = await _readCountriesFallbackAsset();
+      // ignore: avoid_print
+      print('🧩 COUNTRIES from FALLBACK => ${fallback.length}');
+      return fallback;
+    }
+  }
+
+  /// Intenta ambas rutas para countries y devuelve:
+  /// - countries parseados
+  /// - raw json para cachear (sin depender de Country.toJson)
+  Future<({List<Country> countries, List<Map<String, dynamic>> raw})>
+  _fetchCountriesFromNetworkCompat(
+    String lang,
+    CancelToken? cancelToken,
+  ) async {
+    // Ruta A (la “clásica”)
+    final uriA = _wpEndpointUri(
       ['wp-json', 'app', 'v1', 'countries'],
       {'lang': lang},
     );
 
-    // ignore: avoid_print
-    print('🌍 GET COUNTRIES => $uri');
+    // Ruta B (la que tu LOG está usando)
+    final uriB = _wpEndpointUri(
+      ['wp-json', 'app', 'v1', 'antofa', 'geo', 'countries'],
+      {'lang': lang},
+    );
 
-    final res = await dio.getUri(
-      uri,
+    // Intento A
+    try {
+      // ignore: avoid_print
+      print('🌍 GET COUNTRIES(A) => $uriA');
+
+      final resA = await dio.getUri(
+        uriA,
+        options: Options(headers: {'Accept-Language': lang}),
+        cancelToken: cancelToken,
+      );
+
+      final dataA = resA.data;
+      if (dataA is List) {
+        final rawA = dataA.cast<Map<String, dynamic>>();
+        final outA = rawA
+            .map(CountryMapper.jsonToEnitity)
+            .where((c) => c.active)
+            .toList();
+
+        _rebuildCountryIdCache(outA);
+        return (countries: outA, raw: rawA);
+      }
+    } catch (_) {
+      // si falla, probamos B
+    }
+
+    // Intento B
+    // ignore: avoid_print
+    print('🌍 GET COUNTRIES(B) => $uriB');
+
+    final resB = await dio.getUri(
+      uriB,
       options: Options(headers: {'Accept-Language': lang}),
       cancelToken: cancelToken,
     );
 
-    final data = res.data;
-
-    if (data is! List) {
+    final dataB = resB.data;
+    if (dataB is! List) {
       // ignore: avoid_print
-      print('⚠️ COUNTRIES unexpected payload: ${data.runtimeType}');
+      print('⚠️ COUNTRIES(B) unexpected payload: ${dataB.runtimeType}');
+      return (countries: <Country>[], raw: <Map<String, dynamic>>[]);
+    }
+
+    final rawB = dataB.cast<Map<String, dynamic>>();
+    final outB = rawB
+        .map(CountryMapper.jsonToEnitity)
+        .where((c) => c.active)
+        .toList();
+
+    _rebuildCountryIdCache(outB);
+    return (countries: outB, raw: rawB);
+  }
+
+  List<Country> _parseCountriesFromRaw(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return <Country>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return <Country>[];
+
+      final list = decoded
+          .cast<Map<String, dynamic>>()
+          .map(CountryMapper.jsonToEnitity)
+          .where((c) => c.active)
+          .toList();
+
+      _rebuildCountryIdCache(list);
+      return list;
+    } catch (_) {
       return <Country>[];
     }
-
-    final list = data.cast<Map<String, dynamic>>();
-    final out = list.map(CountryMapper.jsonToEnitity).toList();
-
-    _countryIdToCode.clear();
-    for (final c in out) {
-      final code = c.code.trim().toUpperCase();
-      if (code.isNotEmpty) _countryIdToCode[c.id] = code;
-    }
-
-    return out.where((c) => c.active).toList();
   }
+
+  Future<void> _refreshCountriesInBackground(
+    String lang,
+    String cacheKey,
+    CancelToken? cancelToken,
+  ) async {
+    try {
+      final fresh = await _fetchCountriesFromNetworkCompat(lang, cancelToken);
+      if (fresh.raw.isNotEmpty) {
+        await keyValueStorageService.setKeyValue(
+          cacheKey,
+          jsonEncode(fresh.raw),
+        );
+      }
+    } catch (_) {
+      // silencio: si no hay red, seguimos con cache
+    }
+  }
+
+  Future<List<Country>> _readCountriesFallbackAsset() async {
+    try {
+      final raw = await rootBundle.loadString(
+        'assets/data/countries_fallback.json',
+      );
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return <Country>[];
+
+      final list = decoded
+          .cast<Map<String, dynamic>>()
+          .map(CountryMapper.jsonToEnitity)
+          .where((c) => c.active)
+          .toList();
+
+      _rebuildCountryIdCache(list);
+      return list;
+    } catch (_) {
+      return <Country>[];
+    }
+  }
+
+  // ===========================================================================
+  // ✅ REGIONS (igual que tu versión)
+  // ===========================================================================
 
   Future<List<Region>> regionsByCountryCode(
     String countryCode, {

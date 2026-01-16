@@ -1,0 +1,7 @@
+[
+  { "id": 1, "code": "CL", "name": "Chile", "active": true },
+  { "id": 2, "code": "AR", "name": "Argentina", "active": true },
+  { "id": 3, "code": "BO", "name": "Bolivia", "active": true },
+  { "id": 4, "code": "PE", "name": "Perú", "active": true },
+  { "id": 5, "code": "UY", "name": "Uruguay", "active": true }
+]

@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart' show rootBundle;
+
 import 'package:disfruta_antofagasta/config/constants/enviroment.dart';
 import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
+import 'package:disfruta_antofagasta/shared/provider/provider.dart'; // ✅ keyValueStorageServiceProvider
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 String _normalizeLang(String raw) {
@@ -16,6 +21,18 @@ String _normalizeLang(String raw) {
   return 'es';
 }
 
+bool _isGeoCountriesRequest(RequestOptions ro) {
+  final u = ro.uri.toString();
+  return u.contains('/wp-json/app/v1/antofa/geo/countries');
+}
+
+Future<dynamic> _loadCountriesFallbackAsset() async {
+  final raw = await rootBundle.loadString(
+    'assets/data/countries_fallback.json',
+  );
+  return jsonDecode(raw); // normalmente List<dynamic>
+}
+
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
@@ -26,23 +43,109 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
+  final storage = ref.read(keyValueStorageServiceProvider);
+
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) {
-        // ✅ Normaliza SIEMPRE (evita es-AR / en-US / es-419 rompiendo WP)
         final langRaw = ref.read(languageProvider);
         final lang = _normalizeLang(langRaw);
 
-        // ✅ Forzar query param lang (sin duplicarlo mal)
         final qp = Map<String, dynamic>.from(options.queryParameters);
         qp['lang'] = lang;
         options.queryParameters = qp;
 
-        // ✅ Headers robustos para WP / Polylang
         options.headers['Accept-Language'] = lang;
         options.headers['X-App-Lang'] = lang;
 
         handler.next(options);
+      },
+
+      onResponse: (response, handler) async {
+        try {
+          if (_isGeoCountriesRequest(response.requestOptions)) {
+            final lang =
+                (response.requestOptions.queryParameters['lang'] ?? 'es')
+                    .toString();
+            final key = 'cache_geo_countries_$lang';
+
+            final data = response.data;
+            if (data is List) {
+              await storage.setKeyValue(key, jsonEncode(data));
+              // ignore: avoid_print
+              print('✅ [DIO CACHE] saved $key (${data.length})');
+            } else {
+              // ignore: avoid_print
+              print('⚠️ [DIO CACHE] countries payload is not List');
+            }
+          }
+        } catch (e) {
+          // ignore: avoid_print
+          print('⚠️ [DIO CACHE] save error: $e');
+        }
+
+        handler.next(response);
+      },
+
+      onError: (e, handler) async {
+        // ✅ Offline fallback SOLO para countries
+        try {
+          if (_isGeoCountriesRequest(e.requestOptions)) {
+            final lang = (e.requestOptions.queryParameters['lang'] ?? 'es')
+                .toString();
+            final key = 'cache_geo_countries_$lang';
+
+            // 1) intenta cache
+            final raw = await storage.getValue<String>(key);
+            if (raw != null && raw.trim().isNotEmpty) {
+              final decoded = jsonDecode(raw);
+
+              // ignore: avoid_print
+              print('🧩 [DIO CACHE] HIT $key (offline fallback)');
+
+              return handler.resolve(
+                Response(
+                  requestOptions: e.requestOptions,
+                  statusCode: 200,
+                  data: decoded,
+                ),
+              );
+            }
+
+            // ignore: avoid_print
+            print('! [DIO CACHE] MISS $key (no cached data)');
+
+            // 2) si no hay cache, usa fallback asset (como "tipo visitante")
+            try {
+              final fallback = await _loadCountriesFallbackAsset();
+
+              // ignore: avoid_print
+              if (fallback is List) {
+                print(
+                  '🧩 [DIO FALLBACK] asset countries_fallback.json => ${fallback.length}',
+                );
+              } else {
+                print('🧩 [DIO FALLBACK] asset countries_fallback.json loaded');
+              }
+
+              return handler.resolve(
+                Response(
+                  requestOptions: e.requestOptions,
+                  statusCode: 200,
+                  data: fallback,
+                ),
+              );
+            } catch (assetErr) {
+              // ignore: avoid_print
+              print('❌ [DIO FALLBACK] asset error: $assetErr');
+            }
+          }
+        } catch (err) {
+          // ignore: avoid_print
+          print('⚠️ [DIO CACHE] onError handler failed: $err');
+        }
+
+        handler.next(e);
       },
     ),
   );

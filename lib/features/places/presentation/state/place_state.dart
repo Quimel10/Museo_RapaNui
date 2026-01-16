@@ -1,5 +1,4 @@
 import 'package:disfruta_antofagasta/features/home/domain/entities/category.dart';
-
 import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 
 class PlaceState {
@@ -7,15 +6,21 @@ class PlaceState {
   final int? page;
   final String? placeId;
   final String? search;
+
   final bool isLoadingCategories;
   final bool isLoadingPlaceDetails;
   final bool isLoadingMore;
   final bool hasMore;
   final bool isLoadingPlaces;
+
   final String? errorMessage;
   final List<PlaceEntity>? places;
   final PlaceEntity? placeDetails;
   final List<CategoryEntity>? categories;
+
+  // ✅ NUEVO: indica si el último request de DETALLE fue exitoso (200 + mapeo OK)
+  // Regla: si está en false -> mostramos mensaje “sin conexión” en el detalle.
+  final bool placeDetailsLoadedOk;
 
   PlaceState({
     required this.isLoadingCategories,
@@ -31,6 +36,7 @@ class PlaceState {
     this.errorMessage,
     this.categories,
     required this.places,
+    required this.placeDetailsLoadedOk, // ✅
   });
 
   factory PlaceState.initial() => PlaceState(
@@ -46,6 +52,7 @@ class PlaceState {
     places: null,
     categories: null,
     placeDetails: null,
+    placeDetailsLoadedOk: false, // ✅
   );
 
   PlaceState copyWith({
@@ -62,6 +69,7 @@ class PlaceState {
     PlaceEntity? placeDetails,
     List<CategoryEntity>? categories,
     List<PlaceEntity>? places,
+    bool? placeDetailsLoadedOk, // ✅
   }) {
     return PlaceState(
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
@@ -76,8 +84,14 @@ class PlaceState {
       selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,
       isLoadingPlaces: isLoadingPlaces ?? this.isLoadingPlaces,
       isLoadingCategories: isLoadingCategories ?? this.isLoadingCategories,
-      errorMessage: errorMessage ?? this.errorMessage,
+
+      // OJO: aquí antes tenías `errorMessage: errorMessage ?? this.errorMessage`
+      // Eso te dejaba “pegado” el error. Ahora permitimos limpiar con null
+      errorMessage: errorMessage,
       categories: categories ?? this.categories,
+
+      placeDetailsLoadedOk:
+          placeDetailsLoadedOk ?? this.placeDetailsLoadedOk, // ✅
     );
   }
 }

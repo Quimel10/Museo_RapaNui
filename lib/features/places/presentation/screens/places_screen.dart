@@ -10,6 +10,7 @@ import 'package:disfruta_antofagasta/features/home/presentation/widgets/place_sk
 import 'package:disfruta_antofagasta/features/places/presentation/state/place_provider.dart';
 import 'package:disfruta_antofagasta/features/places/presentation/widgets/section_error.dart';
 import 'package:disfruta_antofagasta/shared/provider/api_client_provider.dart';
+import 'package:disfruta_antofagasta/shared/provider/dio_provider.dart'; // ✅ NUEVO
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,6 +103,9 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
         _searchCtrl.text.trim().isNotEmpty ||
         (state.search?.isNotEmpty ?? false);
 
+    final hasError =
+        (state.errorMessage != null && state.errorMessage!.trim().isNotEmpty);
+
     return Scaffold(
       backgroundColor: AppColors.parchment,
       appBar: AppBar(
@@ -122,7 +126,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
           controller: _scroll,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
           children: [
-            // BUSCADOR
             TextField(
               controller: _searchCtrl,
               focusNode: _searchFocus,
@@ -145,14 +148,12 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
             ),
             const SizedBox(height: 12),
 
-            // CATEGORÍAS
             if (state.categories != null) ...[
               CategoryChipsList(
                 items: state.categories!,
                 selectedId: state.selectedCategoryId,
                 padding: EdgeInsets.zero,
                 onChanged: (cat, _) {
-                  // ✅ FIX REAL: solo contar si esto ES una selección nueva
                   final prevId = ref.read(placeProvider).selectedCategoryId;
                   final willSelect = prevId != cat.id;
 
@@ -165,39 +166,77 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                         );
                   }
 
-                  // selectCategory puede togglear; igual lo llamamos siempre
                   ref.read(placeProvider.notifier).selectCategory(cat.id);
                 },
               ),
               const SizedBox(height: 12),
             ],
 
-            // ESTADOS
-            if (state.isLoadingPlaces == true && items.isEmpty) ...[
+            // ✅ Error (sin items)
+            if (hasError && items.isEmpty && state.isLoadingPlaces != true) ...[
+              SectionError(
+                title: 'Sin conexión',
+                message: state.errorMessage!,
+                buttonText: 'Reintentar',
+                icon: Icons.wifi_off_rounded,
+                onRetry: () async {
+                  _searchCtrl.clear();
+                  FocusScope.of(context).unfocus();
+
+                  // ✅ CLAVE: recrea Dio/HttpClient como si reiniciaras la app
+                  ref.invalidate(dioProvider);
+                  ref.invalidate(apiClientProvider);
+                  ref.invalidate(placeProvider);
+
+                  // mini delay para reconstrucción ordenada
+                  await Future.delayed(const Duration(milliseconds: 80));
+
+                  await ref
+                      .read(placeProvider.notifier)
+                      .initForLang(context.locale.languageCode);
+                },
+              ),
+            ]
+            // Skeleton
+            else if (state.isLoadingPlaces == true && items.isEmpty) ...[
               const PlaceSkeleton(),
               const SizedBox(height: 12),
               const PlaceSkeleton(),
-            ] else if (!isSearching && items.isEmpty) ...[
+            ]
+            // Vacío normal
+            else if (!isSearching && items.isEmpty) ...[
               SectionError(
-                message: 'No se han encontrado piezas.',
-                onRetry: () {
+                title: 'Sin resultados',
+                message: 'No se han encontrado piezas para mostrar.',
+                buttonText: 'Recargar',
+                icon: Icons.info_outline_rounded,
+                onRetry: () async {
                   _searchCtrl.clear();
-                  ref
+                  FocusScope.of(context).unfocus();
+                  await ref
                       .read(placeProvider.notifier)
                       .getPlaces(page: 1, categoryId: state.selectedCategoryId);
                 },
               ),
-            ] else if (isSearching && items.isEmpty) ...[
+            ]
+            // Vacío búsqueda
+            else if (isSearching && items.isEmpty) ...[
               SectionError(
-                message: 'No se encontraron piezas con ese nombre.',
-                onRetry: () {
+                title: 'No encontramos coincidencias',
+                message: 'Prueba con otra palabra o revisa la escritura.',
+                buttonText: 'Limpiar búsqueda',
+                icon: Icons.search_off_rounded,
+                onRetry: () async {
                   _searchCtrl.clear();
-                  ref
+                  FocusScope.of(context).unfocus();
+                  await ref
                       .read(placeProvider.notifier)
                       .getPlaces(page: 1, categoryId: state.selectedCategoryId);
                 },
               ),
-            ] else ...[
+            ]
+            // Listado
+            else ...[
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -216,8 +255,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                             meta: {'screen': 'Piezas', 'name': p.titulo},
                           );
                       FocusScope.of(context).unfocus();
-
-                      // ✅ ruta dentro del TAB PIEZAS (mantiene menú)
                       context.push('${AppPath.places}/place/${p.id}');
                     },
                   );

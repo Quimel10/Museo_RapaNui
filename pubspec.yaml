@@ -74,6 +74,7 @@ flutter:
     - assets/flags/
     - assets/pdf/antofagasta-mapa-turistico-mobile-small.pdf
     - assets/i18n/
+    - assets/data/countries_fallback.json
 
 flutter_launcher_icons:
   android: true

@@ -1,7 +1,8 @@
-// lib/features/places/presentation/screens/place_details_screen.dart
-
 import 'package:disfruta_antofagasta/features/places/presentation/state/place_provider.dart';
 import 'package:disfruta_antofagasta/features/places/presentation/widgets/full_screen_gallery.dart';
+import 'package:disfruta_antofagasta/features/places/presentation/widgets/section_error.dart';
+import 'package:disfruta_antofagasta/shared/provider/api_client_provider.dart';
+import 'package:disfruta_antofagasta/shared/provider/dio_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
 import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
 import 'package:disfruta_antofagasta/shared/audio/audio_player_service.dart';
@@ -28,13 +29,13 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      ref.read(placeProvider.notifier).placeDetails(widget.placeId);
+      await ref.read(placeProvider.notifier).placeDetails(widget.placeId);
     });
 
-    _langSub = ref.listenManual<String>(languageProvider, (prev, next) {
-      ref.read(placeProvider.notifier).placeDetails(widget.placeId);
+    _langSub = ref.listenManual<String>(languageProvider, (prev, next) async {
+      await ref.read(placeProvider.notifier).placeDetails(widget.placeId);
     });
   }
 
@@ -55,6 +56,15 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     return (v == key) ? fallback : v;
   }
 
+  Future<void> _hardRetry() async {
+    // ✅ recrea Dio/HttpClient (equivalente a cerrar y abrir)
+    ref.invalidate(dioProvider);
+    ref.invalidate(apiClientProvider);
+
+    await Future.delayed(const Duration(milliseconds: 120));
+    await ref.read(placeProvider.notifier).placeDetails(widget.placeId);
+  }
+
   void _openGallery(
     BuildContext context,
     List<String> images,
@@ -69,9 +79,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // ✅ Extraer imágenes embebidas en HTML (fallback)
-  // ---------------------------------------------------------------------------
   List<String> _extractImgUrlsFromHtml(String html) {
     if (html.trim().isEmpty) return [];
 
@@ -91,29 +98,18 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     return out;
   }
 
-  // ---------------------------------------------------------------------------
-  // ✅ Canonical key más agresivo para dedup:
-  // - quita query (?ver=)
-  // - normaliza http/https + www
-  // - quita sufijo -300x300
-  // - quita -scaled
-  // - quita -1 / -2 (duplicados WP)
-  // ---------------------------------------------------------------------------
   String _canonicalKey(String url) {
     var u = url.trim();
     if (u.isEmpty) return '';
 
-    // quita query
     final q = u.indexOf('?');
     if (q != -1) u = u.substring(0, q);
 
-    // normaliza protocolo + www
     u = u.replaceFirst(RegExp(r'^https?:\/\/', caseSensitive: false), '');
     u = u.replaceFirst(RegExp(r'^www\.', caseSensitive: false), '');
 
     var lower = u.toLowerCase();
 
-    // quita -WIDTHxHEIGHT antes de extensión
     lower = lower.replaceAllMapped(
       RegExp(
         r'-\d{2,5}x\d{2,5}(?=\.(jpg|jpeg|png|webp)$)',
@@ -122,13 +118,11 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
       (m) => '',
     );
 
-    // quita -scaled antes de extensión
     lower = lower.replaceAllMapped(
       RegExp(r'-scaled(?=\.(jpg|jpeg|png|webp)$)', caseSensitive: false),
       (m) => '',
     );
 
-    // quita sufijo -1 / -2 / -3 antes de extensión (WP dup)
     lower = lower.replaceAllMapped(
       RegExp(r'-\d+(?=\.(jpg|jpeg|png|webp)$)', caseSensitive: false),
       (m) => '',
@@ -137,27 +131,19 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     return lower;
   }
 
-  // ---------------------------------------------------------------------------
-  // ✅ Score de "calidad" para elegir la mejor URL cuando hay duplicados
-  // Más alto = mejor.
-  // ---------------------------------------------------------------------------
   int _qualityScore(String url) {
     final u = url.toLowerCase();
 
     int score = 1000;
 
-    // penaliza thumbnails
     if (u.contains('thumb') || u.contains('thumbnail')) score -= 400;
 
-    // penaliza sizes típicos
     if (RegExp(r'-\d{2,5}x\d{2,5}\.(jpg|jpeg|png|webp)$').hasMatch(u)) {
       score -= 250;
     }
 
-    // penaliza scaled (a veces WP lo usa como "derivado")
     if (u.contains('-scaled.')) score -= 80;
 
-    // bonus si parece "full" / "large" / "original"
     if (u.contains('full') || u.contains('large') || u.contains('original')) {
       score += 60;
     }
@@ -165,17 +151,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     return score;
   }
 
-  // ---------------------------------------------------------------------------
-  // ✅ Build galería final:
-  // - Usa SOLO 1 hero (el mejor disponible)
-  // - Dedup por canonicalKey
-  // - Si choca, reemplaza por mejor calidad
-  // Orden de preferencia de fuentes:
-  // 1) hero (best)
-  // 2) imgMedium
-  // 3) imgThumb
-  // 4) <img> del HTML
-  // ---------------------------------------------------------------------------
   List<String> _buildGallery({
     required String heroHigh,
     required String hero,
@@ -192,7 +167,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
       ..._extractImgUrlsFromHtml(html).map((e) => e.trim()),
     ].where((e) => e.isNotEmpty).toList();
 
-    // Mantenemos orden, pero guardamos el "mejor" por key.
     final keysInOrder = <String>[];
     final bestUrlByKey = <String, String>{};
     final bestScoreByKey = <String, int>{};
@@ -237,6 +211,9 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
     final String? error = placeState.errorMessage;
     final PlaceEntity? place = placeState.placeDetails;
 
+    // ✅ AQUÍ está la regla final
+    final bool loadedOk = placeState.placeDetailsLoadedOk == true;
+
     if (isLoading) {
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
@@ -244,35 +221,38 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
       );
     }
 
-    if (place == null || error != null) {
+    // ✅ Si NO cargó OK (offline / servidor) mostramos SIEMPRE el mensaje.
+    if (!loadedOk) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: SectionError(
+              title: 'Sin conexión',
+              message:
+                  error ??
+                  'No pudimos cargar esta pieza.\nRevisa tu señal o Wi-Fi e inténtalo nuevamente.',
+              buttonText: _trOr('common.retry', 'Reintentar'),
+              icon: Icons.wifi_off_rounded,
+              onRetry: _hardRetry,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Si llegamos aquí, la última carga fue OK. Por seguridad:
+    if (place == null) {
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
           child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    error ?? tr('piece_detail.not_found'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: cs.onBackground,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () => ref
-                        .read(placeProvider.notifier)
-                        .placeDetails(widget.placeId),
-                    child: Text(
-                      tr('common.retry') == 'common.retry'
-                          ? 'Reintentar'
-                          : tr('common.retry'),
-                    ),
-                  ),
-                ],
+            child: Text(
+              _trOr('piece_detail.not_found', 'No encontramos esta pieza.'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: cs.onBackground,
               ),
             ),
           ),
@@ -307,13 +287,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
       imgMedium: p.imgMedium,
       imgThumb: p.imgThumb,
       html: descHtml,
-    );
-
-    // ignore: avoid_print
-    print(
-      "🖼️ GALLERY FINAL => ${galleryUrls.length} | "
-      "hero: ${heroImage.isNotEmpty ? heroImage : '(none)'} | "
-      "first: ${galleryUrls.isNotEmpty ? galleryUrls.first : '(none)'}",
     );
 
     final playLabel = _trOr(
@@ -450,7 +423,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                                                 place: p,
                                                 images: galleryUrls,
                                                 imageUrl: heroImage,
-
                                                 descriptionHtml: descHtml,
                                               );
                                             } else {
@@ -536,8 +508,6 @@ class _PlaceDetailsScreenState extends ConsumerState<PlaceDetailsScreen> {
                         separatorBuilder: (_, __) => const SizedBox(width: 12),
                         itemBuilder: (context, i) {
                           final url = galleryUrls[i];
-
-                          // ✅ Tag estable, evita problemas cuando URL cambia / dup
                           final heroTag = 'gallery_${p.id}_$i';
 
                           return InkWell(

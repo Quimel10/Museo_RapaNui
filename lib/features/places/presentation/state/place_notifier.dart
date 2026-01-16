@@ -1,6 +1,8 @@
 import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 import 'package:disfruta_antofagasta/features/places/domain/repositories/place_repository.dart';
 import 'package:disfruta_antofagasta/features/places/presentation/state/place_state.dart';
+import 'package:disfruta_antofagasta/shared/utils/network_error.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PlaceNotifier extends StateNotifier<PlaceState> {
@@ -15,15 +17,16 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
 
     state = state.copyWith(
       isLoadingPlaces: true,
+      isLoadingCategories: true,
       errorMessage: null,
       places: null,
       categories: null,
-      // 👇 importante: reseteo consistente
       page: 1,
       hasMore: true,
       isLoadingMore: false,
       search: '',
-      selectedCategoryId: 0, // 0 = "todas"
+      selectedCategoryId: 0,
+      // ✅ NO tocamos placeDetailsLoadedOk acá
     );
 
     await Future.wait([
@@ -34,12 +37,8 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
 
   Future<void> refresh() => initForLang(_currentLang);
 
-  /// ✅ Toggle de categoría (mismo comportamiento que Home)
   Future<void> selectCategory(int? categoryId) async {
-    // normalizamos null a 0
     final incoming = categoryId ?? 0;
-
-    // toggle: si tocas la misma => vuelve a 0
     final nextCatId = (state.selectedCategoryId == incoming) ? 0 : incoming;
 
     state = state.copyWith(
@@ -50,18 +49,15 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
 
     final text = (state.search ?? '').trim();
 
-    // si hay búsqueda activa, refrescamos búsqueda con el nuevo filtro
     if (text.isNotEmpty) {
       await getSearch(categoryId: nextCatId, search: text);
       return;
     }
 
-    // si no hay búsqueda, refrescamos listado normal
     await getPlaces(categoryId: nextCatId, page: 1);
   }
 
   Future<void> getPlaces({int? categoryId, int page = 1}) async {
-    // 👇 regla: si no viene categoryId, usamos el estado
     final catId = categoryId ?? state.selectedCategoryId;
 
     state = state.copyWith(
@@ -83,26 +79,29 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
         isLoadingMore: false,
         hasMore: results.isNotEmpty,
         places: page == 1 ? results : [...(state.places ?? []), ...results],
+        errorMessage: null,
       );
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('PlaceNotifier.getPlaces ERROR: $e');
+      debugPrintStack(stackTrace: st);
+
       state = state.copyWith(
         isLoadingPlaces: false,
         isLoadingMore: false,
-        errorMessage: 'Error cargando lugares: $e',
+        errorMessage: NetworkError.userMessage(
+          e,
+          fallback: 'No pudimos cargar las piezas.\nIntenta nuevamente.',
+        ),
       );
     }
   }
 
   Future<void> getSearch({int? categoryId, required String search}) async {
-    // ❌ saco tu lógica rara de "si es igual => 0" de acá.
-    // Eso es toggle y se maneja en selectCategory().
-
     final catId = categoryId ?? state.selectedCategoryId;
     final text = search.trim();
 
     if (text.isEmpty) {
-      // si limpian el texto, volvemos al listado normal con el filtro actual
-      state = state.copyWith(search: '');
+      state = state.copyWith(search: '', errorMessage: null);
       await getPlaces(categoryId: catId, page: 1);
       return;
     }
@@ -128,12 +127,19 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
       state = state.copyWith(
         isLoadingPlaces: false,
         places: results,
-        hasMore: false, // sin paginación en búsqueda
+        hasMore: false,
+        errorMessage: null,
       );
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('PlaceNotifier.getSearch ERROR: $e');
+      debugPrintStack(stackTrace: st);
+
       state = state.copyWith(
         isLoadingPlaces: false,
-        errorMessage: 'Error buscando lugares: $e',
+        errorMessage: NetworkError.userMessage(
+          e,
+          fallback: 'No pudimos buscar en este momento.\nIntenta nuevamente.',
+        ),
       );
     }
   }
@@ -145,11 +151,18 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
       state = state.copyWith(
         isLoadingCategories: false,
         categories: categories,
+        errorMessage: null,
       );
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('PlaceNotifier.loadCategories ERROR: $e');
+      debugPrintStack(stackTrace: st);
+
       state = state.copyWith(
         isLoadingCategories: false,
-        errorMessage: 'Error loading categories: $e',
+        errorMessage: NetworkError.userMessage(
+          e,
+          fallback: 'No pudimos cargar las categorías.\nIntenta nuevamente.',
+        ),
       );
     }
   }
@@ -159,15 +172,30 @@ class PlaceNotifier extends StateNotifier<PlaceState> {
       placeId: id ?? 'no-id',
       isLoadingPlaceDetails: true,
       errorMessage: null,
+      // ✅ IMPORTANTE: al empezar, lo marcamos como "no ok" hasta que termine bien
+      placeDetailsLoadedOk: false,
     );
 
     try {
       final place = await repository.getPlace(id: id);
-      state = state.copyWith(isLoadingPlaceDetails: false, placeDetails: place);
-    } catch (e) {
+
       state = state.copyWith(
         isLoadingPlaceDetails: false,
-        errorMessage: 'Error loading categories: $e',
+        placeDetails: place,
+        errorMessage: null,
+        placeDetailsLoadedOk: true, // ✅ éxito real
+      );
+    } catch (e, st) {
+      debugPrint('PlaceNotifier.placeDetails ERROR: $e');
+      debugPrintStack(stackTrace: st);
+
+      state = state.copyWith(
+        isLoadingPlaceDetails: false,
+        errorMessage: NetworkError.userMessage(
+          e,
+          fallback: 'No pudimos cargar esta pieza.\nIntenta nuevamente.',
+        ),
+        placeDetailsLoadedOk: false, // ✅ falla -> debe mostrarse mensaje
       );
     }
   }
