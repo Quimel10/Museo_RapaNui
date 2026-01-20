@@ -152,7 +152,7 @@ class _GuestFormState extends ConsumerState<GuestForm> {
               : n.countryChanged,
         ),
 
-        // ✅ Región SOLO si aplica (Chile/Perú). Si Argentina -> no se renderiza.
+        // ✅ Región SOLO si aplica
         if (showRegion) ...[
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
@@ -196,7 +196,7 @@ class _GuestFormState extends ConsumerState<GuestForm> {
 
         const SizedBox(height: 12),
 
-        // ✅ Tipo de visitante (placeholder correcto)
+        // ✅ Tipo de visitante (SINCRONIZADO - keys canónicos)
         DropdownButtonFormField<String>(
           value: (s.visitorType == null || s.visitorType!.trim().isEmpty)
               ? null
@@ -220,9 +220,16 @@ class _GuestFormState extends ConsumerState<GuestForm> {
           ),
           items: const [
             DropdownMenuItem(
-              value: 'rapanui',
+              value: 'local_rapanui',
               child: Text(
                 'Local (RapaNui)',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'local_no_rapanui',
+              child: Text(
+                'Local no RapaNui',
                 style: TextStyle(color: Colors.black87),
               ),
             ),
@@ -234,7 +241,7 @@ class _GuestFormState extends ConsumerState<GuestForm> {
               ),
             ),
             DropdownMenuItem(
-              value: 'foreign',
+              value: 'extranjero',
               child: Text(
                 'Extranjero',
                 style: TextStyle(color: Colors.black87),

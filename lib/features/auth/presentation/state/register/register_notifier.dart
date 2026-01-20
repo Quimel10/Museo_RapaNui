@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:disfruta_antofagasta/features/auth/domain/entities/country.dart';
@@ -7,7 +9,7 @@ import 'package:disfruta_antofagasta/features/auth/domain/entities/register_user
 import 'register_state.dart';
 
 typedef LoadCountries = Future<List<Country>> Function();
-typedef LoadRegionsByCode = Future<List<Region>> Function(String code);
+typedef LoadRegionsByCode = Future<List<Region>> Function(String countryCode);
 typedef RegisterUserCallback = Future<void> Function(RegisterUser user);
 
 class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
@@ -15,8 +17,7 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
   final LoadRegionsByCode loadRegionsByCode;
   final RegisterUserCallback registerUserCallback;
 
-  int _countriesReqId = 0;
-  int _regionsReqId = 0;
+  CancelableOperation<List<Region>>? _regionsOp;
 
   RegisterFormNotifier({
     required this.loadCountries,
@@ -25,21 +26,15 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
   }) : super(const RegisterFormState());
 
   Future<void> bootstrap() async {
-    final req = ++_countriesReqId;
-
     state = state.copyWith(isLoadingCountries: true, clearError: true);
 
     try {
       final list = await loadCountries();
-      if (req != _countriesReqId) return;
-
       state = state.copyWith(isLoadingCountries: false, countries: list);
-    } catch (_) {
-      if (req != _countriesReqId) return;
-
+    } catch (e) {
       state = state.copyWith(
         isLoadingCountries: false,
-        error: 'No pudimos cargar países.',
+        error: 'No se pudieron cargar países',
       );
     }
   }
@@ -48,68 +43,60 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
     switch (key) {
       case 'name':
         state = state.copyWith(name: value, clearError: true);
-        break;
+        return;
       case 'last':
         state = state.copyWith(last: value, clearError: true);
-        break;
+        return;
       case 'email':
         state = state.copyWith(email: value, clearError: true);
-        break;
+        return;
       case 'pass':
         state = state.copyWith(pass: value, clearError: true);
-        break;
+        return;
       case 'age':
-        state = state.copyWith(
-          age: int.tryParse(value.trim()),
-          clearError: true,
-        );
-        break;
+        final v = int.tryParse(value.trim());
+        state = state.copyWith(age: v, clearError: true);
+        return;
       case 'stay':
-        state = state.copyWith(
-          stay: int.tryParse(value.trim()),
-          clearError: true,
-        );
-        break;
+        final v = int.tryParse(value.trim());
+        state = state.copyWith(stay: v, clearError: true);
+        return;
+      default:
+        return;
     }
   }
 
-  void visitorTypeChanged(String v) {
-    state = state.copyWith(visitorType: v, clearError: true);
-  }
-
   Future<void> countryChanged(Country? c) async {
-    if (c == null) return;
-
     state = state.copyWith(
       selectedCountry: c,
-      regions: const [],
-      clearSelectedRegion: true,
-      isLoadingRegions: true,
       clearError: true,
+      clearSelectedRegion: true,
     );
 
-    final req = ++_regionsReqId;
+    if (c == null) {
+      state = state.copyWith(isLoadingRegions: false, regions: const []);
+      return;
+    }
+
+    // Cancelar request anterior de regiones si existe
+    await _regionsOp?.cancel();
+
+    // Si tu backend decide “needsRegion” por tener regiones,
+    // cargamos y si viene vacío -> el dropdown no se renderiza.
+    state = state.copyWith(isLoadingRegions: true, regions: const []);
+
+    final op = CancelableOperation.fromFuture(loadRegionsByCode(c.code));
+    _regionsOp = op;
 
     try {
-      final regs = await loadRegionsByCode(c.code);
-      if (req != _regionsReqId) return;
+      final list = await op.value;
+      // si otro op se creó después, ignoramos este resultado
+      if (_regionsOp != op) return;
 
-      final currentId = state.selectedRegionId;
-      final exists = currentId != null && regs.any((r) => r.id == currentId);
-
-      state = state.copyWith(
-        isLoadingRegions: false,
-        regions: regs,
-        selectedRegionId: exists ? currentId : null,
-      );
+      state = state.copyWith(isLoadingRegions: false, regions: list);
     } catch (_) {
-      if (req != _regionsReqId) return;
-
-      state = state.copyWith(
-        isLoadingRegions: false,
-        regions: const [],
-        clearSelectedRegion: true,
-      );
+      if (_regionsOp != op) return;
+      state = state.copyWith(isLoadingRegions: false, regions: const []);
     }
   }
 
@@ -117,45 +104,76 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
     state = state.copyWith(selectedRegionId: id, clearError: true);
   }
 
+  /// ✅ Aquí se setea el KEY canónico desde el dropdown:
+  /// local_rapanui | local_no_rapanui | continental | extranjero
+  void visitorTypeChanged(String v) {
+    state = state.copyWith(visitorType: v, clearError: true);
+  }
+
   Future<void> submit() async {
     if (state.isPosting) return;
 
-    if (state.visitorType == null || state.visitorType!.trim().isEmpty) {
-      state = state.copyWith(error: 'Selecciona el tipo de visitante.');
-      return;
-    }
-
     if (!state.canSubmit) {
-      state = state.copyWith(error: 'Completa los campos requeridos.');
+      state = state.copyWith(error: 'Completa todos los campos requeridos.');
       return;
     }
 
     state = state.copyWith(isPosting: true, clearError: true);
 
     try {
-      final countryCode = state.selectedCountry!.code.trim().toUpperCase();
-      final regionId = state.needsRegion ? state.selectedRegionId : null;
-
       final user = RegisterUser(
-        name: state.name.trim(),
-        lastname: state.last.trim(),
-        email: state.email.trim(),
+        name: state.name,
+        lastname: state.last,
+        email: state.email,
         password: state.pass,
-        countryCode: countryCode,
-        visitorType: state.visitorType!.trim(),
-        regionId: regionId,
+        countryCode: state.selectedCountry!.code,
+        regionId: state.needsRegion ? state.selectedRegionId : null,
         age: state.age,
         daysStay: state.stay,
+        visitorType: state.visitorType!, // ✅ KEY canónico
+        device: null,
+        arrivalDate: null,
+        departureDate: null,
       );
 
       await registerUserCallback(user);
 
       state = state.copyWith(isPosting: false);
-    } catch (_) {
+    } catch (e) {
       state = state.copyWith(
         isPosting: false,
-        error: 'No pudimos crear la cuenta.',
+        error: 'No se pudo crear la cuenta. Intenta nuevamente.',
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _regionsOp?.cancel();
+    super.dispose();
+  }
+}
+
+/// Pequeña utilidad de cancelación sin traer paquetes externos.
+class CancelableOperation<T> {
+  final Future<T> _future;
+  bool _isCanceled = false;
+
+  CancelableOperation._(this._future);
+
+  Future<T> get value async {
+    final v = await _future;
+    if (_isCanceled) {
+      throw StateError('Canceled');
+    }
+    return v;
+  }
+
+  Future<void> cancel() async {
+    _isCanceled = true;
+  }
+
+  static CancelableOperation<T> fromFuture<T>(Future<T> f) {
+    return CancelableOperation._(f);
   }
 }

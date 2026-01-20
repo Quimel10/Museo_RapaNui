@@ -62,6 +62,35 @@ class AuthDataSourceImpl extends AuthDataSource {
     return _normalizeLang(stored);
   }
 
+  /// ✅ visitor_type SIEMPRE como KEY canónico
+  /// Acepta compat: labels viejos, "foreign", "rapanui", "visitante", etc.
+  String _normalizeVisitorTypeKey(String raw) {
+    final v = raw.trim().toLowerCase();
+    if (v.isEmpty) return '';
+
+    // canónicos
+    if (v == 'local_rapanui' ||
+        v == 'local_no_rapanui' ||
+        v == 'continental' ||
+        v == 'extranjero') {
+      return v;
+    }
+
+    // compat antiguos app
+    if (v == 'rapanui') return 'local_rapanui';
+    if (v == 'foreign') return 'extranjero';
+
+    // compat labels / textos
+    if (v.contains('no rapanui') || v.contains('no-rapanui')) {
+      return 'local_no_rapanui';
+    }
+    if (v.contains('rapanui')) return 'local_rapanui';
+    if (v.contains('continental')) return 'continental';
+    if (v.contains('extranj') || v.contains('visitante')) return 'extranjero';
+
+    return '';
+  }
+
   /// ✅ Construye el WP root de forma segura desde Environment.apiUrl
   /// - Si incluye /ant_q/... => usa /ant_q
   /// - Si no => usa dominio
@@ -130,7 +159,8 @@ class AuthDataSourceImpl extends AuthDataSource {
   }) async {
     final safeName = name.trim();
     final safeCountry = countryCode.trim().toUpperCase();
-    final safeVisitor = (visitorType ?? '').trim();
+
+    final vtKey = _normalizeVisitorTypeKey((visitorType ?? '').trim());
 
     final payload = <String, dynamic>{
       'name': safeName,
@@ -139,7 +169,7 @@ class AuthDataSourceImpl extends AuthDataSource {
       'device': device,
       'age': age,
       'days_stay': daysStay,
-      if (safeVisitor.isNotEmpty) 'visitor_type': safeVisitor,
+      if (vtKey.isNotEmpty) 'visitor_type': vtKey,
     };
 
     // ignore: avoid_print
@@ -201,7 +231,7 @@ class AuthDataSourceImpl extends AuthDataSource {
   // ✅ WP GEO - COUNTRIES OFFLINE (cache raw json + fallback asset)
   //    Compatible con 2 rutas:
   //    A) /wp-json/app/v1/countries
-  //    B) /wp-json/app/v1/antofa/geo/countries  (la que sale en tu log)
+  //    B) /wp-json/app/v1/antofa/geo/countries
   // ===========================================================================
 
   @override
@@ -243,27 +273,21 @@ class AuthDataSourceImpl extends AuthDataSource {
     }
   }
 
-  /// Intenta ambas rutas para countries y devuelve:
-  /// - countries parseados
-  /// - raw json para cachear (sin depender de Country.toJson)
   Future<({List<Country> countries, List<Map<String, dynamic>> raw})>
   _fetchCountriesFromNetworkCompat(
     String lang,
     CancelToken? cancelToken,
   ) async {
-    // Ruta A (la “clásica”)
     final uriA = _wpEndpointUri(
       ['wp-json', 'app', 'v1', 'countries'],
       {'lang': lang},
     );
 
-    // Ruta B (la que tu LOG está usando)
     final uriB = _wpEndpointUri(
       ['wp-json', 'app', 'v1', 'antofa', 'geo', 'countries'],
       {'lang': lang},
     );
 
-    // Intento A
     try {
       // ignore: avoid_print
       print('🌍 GET COUNTRIES(A) => $uriA');
@@ -286,10 +310,9 @@ class AuthDataSourceImpl extends AuthDataSource {
         return (countries: outA, raw: rawA);
       }
     } catch (_) {
-      // si falla, probamos B
+      // fallback a B
     }
 
-    // Intento B
     // ignore: avoid_print
     print('🌍 GET COUNTRIES(B) => $uriB');
 
@@ -348,9 +371,7 @@ class AuthDataSourceImpl extends AuthDataSource {
           jsonEncode(fresh.raw),
         );
       }
-    } catch (_) {
-      // silencio: si no hay red, seguimos con cache
-    }
+    } catch (_) {}
   }
 
   Future<List<Country>> _readCountriesFallbackAsset() async {
@@ -376,7 +397,7 @@ class AuthDataSourceImpl extends AuthDataSource {
   }
 
   // ===========================================================================
-  // ✅ REGIONS (igual que tu versión)
+  // ✅ REGIONS
   // ===========================================================================
 
   Future<List<Region>> regionsByCountryCode(

@@ -231,7 +231,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
 
         const SizedBox(height: 12),
 
-        // ✅ Tipo de visitante (placeholder correcto)
+        // ✅ Tipo de visitante (keys canónicos sincronizados con WP)
         DropdownButtonFormField<String>(
           value: (s.visitorType == null || s.visitorType!.trim().isEmpty)
               ? null
@@ -255,9 +255,16 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
           ),
           items: const [
             DropdownMenuItem(
-              value: 'rapanui',
+              value: 'local_rapanui',
               child: Text(
                 'Local (RapaNui)',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'local_no_rapanui',
+              child: Text(
+                'Local no RapaNui',
                 style: TextStyle(color: Colors.black87),
               ),
             ),
@@ -269,7 +276,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
               ),
             ),
             DropdownMenuItem(
-              value: 'foreign',
+              value: 'extranjero',
               child: Text(
                 'Extranjero',
                 style: TextStyle(color: Colors.black87),

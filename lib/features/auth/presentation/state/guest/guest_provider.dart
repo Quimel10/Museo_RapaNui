@@ -7,18 +7,40 @@ import 'package:disfruta_antofagasta/features/auth/presentation/state/geo/auth_g
 import 'guest_notifier.dart';
 import 'guest_state.dart';
 
-String _normalizeVisitorType(String raw) {
+/// ✅ Normaliza cualquier valor recibido (viejo o nuevo) a KEYS canónicos
+/// que deben coincidir con WP/DB.
+///
+/// Keys canónicos:
+/// - local_rapanui
+/// - local_no_rapanui
+/// - continental
+/// - extranjero
+String _normalizeVisitorTypeKey(String raw) {
   final v = raw.trim().toLowerCase();
+  if (v.isEmpty) return 'continental';
 
-  // Acepta variaciones típicas y las deja “bonitas” para Analytics
-  if (v.contains('local')) return 'Local (RapaNui)';
-  if (v.contains('continental')) return 'Continental';
-  if (v.contains('extranj')) return 'Extranjero';
+  // ya canónico
+  if (v == 'local_rapanui' ||
+      v == 'local_no_rapanui' ||
+      v == 'continental' ||
+      v == 'extranjero') {
+    return v;
+  }
 
-  if (raw.trim().isNotEmpty) return raw.trim();
+  // compat con keys antiguas de la app
+  if (v == 'rapanui') return 'local_rapanui';
+  if (v == 'foreign') return 'extranjero';
 
-  // fallback seguro (no debería usarse si forzamos a seleccionar)
-  return 'Continental';
+  // compat con textos (por si quedaron guardados)
+  if (v.contains('no rapanui') || v.contains('no-rapanui')) {
+    return 'local_no_rapanui';
+  }
+  if (v.contains('rapanui')) return 'local_rapanui';
+  if (v.contains('continental')) return 'continental';
+  if (v.contains('extranj')) return 'extranjero';
+  if (v.contains('visitante')) return 'extranjero';
+
+  return 'continental';
 }
 
 final guestFormProvider =
@@ -38,12 +60,12 @@ final guestFormProvider =
               int? day,
               int? age,
             }) async {
-              final normalizedVisitorType = _normalizeVisitorType(visitorType);
+              final visitorTypeKey = _normalizeVisitorTypeKey(visitorType);
 
               final guest = Guest(
                 name: name.trim(),
                 countryCode: countryCode.trim().toUpperCase(),
-                visitorType: normalizedVisitorType,
+                visitorType: visitorTypeKey, // ✅ ahora guardamos KEY, no texto
                 regionId: regionId,
                 daysStay: day,
                 age: age,
