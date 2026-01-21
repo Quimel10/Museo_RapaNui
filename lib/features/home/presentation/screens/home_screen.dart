@@ -137,13 +137,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           appBar: AppBar(
             backgroundColor: Colors.black,
             elevation: 0,
-            title: Text(
-              'home.welcome'.tr(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+
+            // ✅ FIX: evita ellipsis -> scaleDown si falta espacio
+            title: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'home.welcome'.tr(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
+
             leading: Consumer(
               builder: (context, ref, _) => IconButton(
                 tooltip: 'home.logout_tooltip'.tr(),
@@ -244,8 +254,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   );
                 },
               ),
+
               if (state.weather != null)
+                // ✅ FIX CLAVE: este Row NO puede expandirse.
+                // Si se expande, le roba todo el ancho al título y lo trunca.
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     if (state.weather!.uvMax != null) ...[
                       const SizedBox(width: 4),
