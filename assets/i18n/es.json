@@ -50,6 +50,7 @@
   },
 
   "actions": { "retry": "Reintentar" },
+  "common": { "retry": "Reintentar" },
 
   "errors": {
     "place_not_loaded": "No se pudo cargar la pieza.",
@@ -62,9 +63,17 @@
   },
 
   "scanner": {
-    "invalid_title": "Código no válido",
-    "invalid_body": "El QR leído no contiene un ID numérico: \"{code}\"",
-    "close": "Cerrar"
+    "invalid_title": "QR no reconocido",
+    "invalid_body": "Este código no pertenece al museo. Escanea un QR del museo RapaNui.",
+    "not_found_title": "Pieza no encontrada",
+    "not_found_body": "Este QR parece ser del museo, pero la pieza no existe o no está disponible.",
+    "not_translated_title": "No disponible en este idioma",
+    "not_translated_body": "Esta pieza no tiene traducción para el idioma actual. Cambia el idioma o escanea otro QR.",
+    "network_title": "Sin conexión",
+    "network_body": "No pudimos cargar esta pieza. Revisa tu señal o Wi-Fi e inténtalo nuevamente.",
+    "close": "Cerrar",
+    "scan_again": "Seguir escaneando",
+    "retry": "Reintentar"
   },
 
   "language_onboarding": {

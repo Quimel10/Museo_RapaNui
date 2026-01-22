@@ -7,9 +7,9 @@
     "search": "Which piece are you looking for?",
     "no_featured": "There are no featured pieces at the moment.",
     "info_banners": "Information banners",
-    "no_banners": "There are currently no information banners.",
-    "banner_load_error": "We couldn't load the information banners. Please try again later.",
-    "no_audio": "This piece does not have an audio guide available.",
+    "no_banners": "There are no information banners at the moment.",
+    "banner_load_error": "We couldn’t load the information banners. Please try again later.",
+    "no_audio": "This piece has no audio available.",
     "logout_tooltip": "Log out"
   },
 
@@ -38,7 +38,7 @@
     "playing_now": "Now playing",
     "paused": "Paused",
     "tap_to_play": "Tap to play",
-    "load_error": "The piece could not be loaded.",
+    "load_error": "Couldn’t load the piece.",
     "not_found": "Piece not found."
   },
 
@@ -46,13 +46,14 @@
     "play_audio": "Play audio",
     "pause_audio": "Pause audio",
     "loading_audio": "Loading audio...",
-    "audio_error": "The audio could not be played."
+    "audio_error": "Couldn’t play the audio."
   },
 
   "actions": { "retry": "Retry" },
+  "common": { "retry": "Retry" },
 
   "errors": {
-    "place_not_loaded": "The piece could not be loaded.",
+    "place_not_loaded": "Couldn’t load the piece.",
     "place_not_found": "The piece was not found."
   },
 
@@ -62,9 +63,17 @@
   },
 
   "scanner": {
-    "invalid_title": "Invalid code",
-    "invalid_body": "The scanned QR code does not contain a numeric ID: \"{code}\"",
-    "close": "Close"
+    "invalid_title": "QR not recognized",
+    "invalid_body": "This code does not belong to the museum. Please scan a RapaNui Museum QR code.",
+    "not_found_title": "Piece not found",
+    "not_found_body": "This QR seems to be from the museum, but the piece does not exist or is not available.",
+    "not_translated_title": "Not available in this language",
+    "not_translated_body": "This piece does not have a translation for the current language. Change the language or scan another QR.",
+    "network_title": "No connection",
+    "network_body": "We couldn’t load this piece. Check your signal or Wi-Fi and try again.",
+    "close": "Close",
+    "scan_again": "Keep scanning",
+    "retry": "Retry"
   },
 
   "language_onboarding": {

@@ -4,42 +4,42 @@
   "home": {
     "welcome": "Bienvenue !",
     "featured": "À la une",
-    "search": "Quelle œuvre recherchez-vous ?",
-    "no_featured": "Aucune œuvre mise en avant pour le moment.",
-    "info_banners": "Bannières d'information",
-    "no_banners": "Il n’y a actuellement aucune bannière d'information.",
-    "banner_load_error": "Impossible de charger les bannières d'information. Veuillez réessayer plus tard.",
-    "no_audio": "Cette œuvre ne dispose pas d’audioguide.",
+    "search": "Quelle pièce recherchez-vous ?",
+    "no_featured": "Il n’y a pas de pièces à la une pour le moment.",
+    "info_banners": "Bannières d’information",
+    "no_banners": "Il n’y a pas de bannières d’information pour le moment.",
+    "banner_load_error": "Impossible de charger les bannières d’information. Réessayez plus tard.",
+    "no_audio": "Cette pièce n’a pas d’audio disponible.",
     "logout_tooltip": "Se déconnecter"
   },
 
   "tabs": {
     "home": "Accueil",
     "scan": "Scanner QR",
-    "pieces": "Œuvres",
-    "places": "Œuvres",
+    "pieces": "Pièces",
+    "places": "Pièces",
     "map": "Carte",
     "favorites": "Favoris",
     "search": "Rechercher"
   },
 
   "pieces": {
-    "title": "Œuvres",
-    "search": "Quelle œuvre recherchez-vous ?"
+    "title": "Pièces",
+    "search": "Quelle pièce rechercher ?"
   },
 
   "piece_detail": {
     "description_title": "Description",
     "references_title": "Références :",
-    "images_title": "Images de l’œuvre",
+    "images_title": "Images de la pièce",
     "play_audio": "Lire l’audio",
     "pause_audio": "Mettre en pause",
     "play_audio_button": "Lire l’audio",
-    "playing_now": "Lecture en cours",
+    "playing_now": "En lecture",
     "paused": "En pause",
-    "tap_to_play": "Appuyez pour écouter",
-    "load_error": "Impossible de charger l’œuvre.",
-    "not_found": "Œuvre introuvable."
+    "tap_to_play": "Appuyer pour lire",
+    "load_error": "Impossible de charger la pièce.",
+    "not_found": "Pièce introuvable."
   },
 
   "player": {
@@ -50,27 +50,36 @@
   },
 
   "actions": { "retry": "Réessayer" },
+  "common": { "retry": "Réessayer" },
 
   "errors": {
-    "place_not_loaded": "Impossible de charger l’œuvre.",
-    "place_not_found": "L’œuvre n’a pas été trouvée."
+    "place_not_loaded": "Impossible de charger la pièce.",
+    "place_not_found": "La pièce est introuvable."
   },
 
   "place": {
     "description": "Description",
-    "images_of_piece": "Images de l’œuvre"
+    "images_of_piece": "Images de la pièce"
   },
 
   "scanner": {
-    "invalid_title": "Code invalide",
-    "invalid_body": "Le QR scanné ne contient pas d’identifiant numérique : \"{code}\"",
-    "close": "Fermer"
+    "invalid_title": "QR non reconnu",
+    "invalid_body": "Ce code n’appartient pas au musée. Scannez un QR du Musée RapaNui.",
+    "not_found_title": "Pièce introuvable",
+    "not_found_body": "Ce QR semble provenir du musée, mais la pièce n’existe pas ou n’est pas disponible.",
+    "not_translated_title": "Indisponible dans cette langue",
+    "not_translated_body": "Cette pièce n’a pas de traduction pour la langue actuelle. Changez de langue ou scannez un autre QR.",
+    "network_title": "Pas de connexion",
+    "network_body": "Impossible de charger cette pièce. Vérifiez votre connexion ou le Wi-Fi et réessayez.",
+    "close": "Fermer",
+    "scan_again": "Continuer à scanner",
+    "retry": "Réessayer"
   },
 
   "language_onboarding": {
     "title": "Sélectionnez la langue de votre visite au musée",
-    "subtitle": "Vous pourrez modifier la langue plus tard depuis l’accueil.",
+    "subtitle": "Vous pourrez changer la langue plus tard depuis l’accueil.",
     "confirm": "Confirmer",
-    "skip": "Plus tard"
+    "skip": "Pas maintenant"
   }
 }

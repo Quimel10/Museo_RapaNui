@@ -7,10 +7,10 @@
     "search": "Qual peça você procura?",
     "no_featured": "Não há peças em destaque no momento.",
     "info_banners": "Banners informativos",
-    "no_banners": "No momento não há banners informativos.",
+    "no_banners": "Não há banners informativos no momento.",
     "banner_load_error": "Não foi possível carregar os banners informativos. Tente novamente mais tarde.",
-    "no_audio": "Esta peça não possui áudio disponível.",
-    "logout_tooltip": "Encerrar sessão"
+    "no_audio": "Esta peça não tem áudio disponível.",
+    "logout_tooltip": "Sair"
   },
 
   "tabs": {
@@ -25,7 +25,7 @@
 
   "pieces": {
     "title": "Peças",
-    "search": "Qual peça você procura?"
+    "search": "Qual peça buscar?"
   },
 
   "piece_detail": {
@@ -50,6 +50,7 @@
   },
 
   "actions": { "retry": "Tentar novamente" },
+  "common": { "retry": "Tentar novamente" },
 
   "errors": {
     "place_not_loaded": "Não foi possível carregar a peça.",
@@ -62,14 +63,22 @@
   },
 
   "scanner": {
-    "invalid_title": "Código inválido",
-    "invalid_body": "O QR lido não contém um ID numérico: \"{code}\"",
-    "close": "Fechar"
+    "invalid_title": "QR não reconhecido",
+    "invalid_body": "Este código não pertence ao museu. Escaneie um QR do Museu RapaNui.",
+    "not_found_title": "Peça não encontrada",
+    "not_found_body": "Este QR parece ser do museu, mas a peça não existe ou não está disponível.",
+    "not_translated_title": "Indisponível neste idioma",
+    "not_translated_body": "Esta peça não tem tradução para o idioma atual. Mude o idioma ou escaneie outro QR.",
+    "network_title": "Sem conexão",
+    "network_body": "Não foi possível carregar esta peça. Verifique sua rede ou Wi-Fi e tente novamente.",
+    "close": "Fechar",
+    "scan_again": "Continuar escaneando",
+    "retry": "Tentar novamente"
   },
 
   "language_onboarding": {
     "title": "Selecione o idioma da sua visita ao museu",
-    "subtitle": "Você poderá alterar o idioma depois na tela Inicial.",
+    "subtitle": "Você poderá mudar o idioma depois na tela Início.",
     "confirm": "Confirmar",
     "skip": "Agora não"
   }

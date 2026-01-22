@@ -10,21 +10,27 @@ class NavScaffold extends StatelessWidget {
   const NavScaffold({super.key, required this.navigationShell});
 
   void _onTap(int index) {
-    navigationShell.goBranch(
-      index,
-      initialLocation: index == navigationShell.currentIndex,
-    );
+    final current = navigationShell.currentIndex;
+
+    // ✅ CLAVE: si toca el MISMO tab, NO navegues.
+    // Esto evita re-selección que a veces provoca pause/resume raro en cámara (Android).
+    if (index == current) {
+      return;
+    }
+
+    // ✅ Cambio normal de tab (NO resetear la rama)
+    navigationShell.goBranch(index, initialLocation: false);
   }
 
   @override
   Widget build(BuildContext context) {
-    // 👇 ESTA ES LA CLAVE: fuerza reconstrucción al cambiar idioma
+    // 👇 reconstruye BottomNavigationBar al cambiar idioma
     final localeKey = ValueKey(context.locale.toString());
 
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
-        key: localeKey, // 👈 reconstruye al cambiar idioma
+        key: localeKey,
         currentIndex: navigationShell.currentIndex,
         onTap: _onTap,
         type: BottomNavigationBarType.fixed,
@@ -32,19 +38,14 @@ class NavScaffold extends StatelessWidget {
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white60,
         items: [
-          // 0 - ESCANEAR
           BottomNavigationBarItem(
             icon: const Icon(Icons.qr_code_scanner),
             label: 'tabs.scan'.tr(),
           ),
-
-          // 1 - INICIO
           BottomNavigationBarItem(
             icon: const Icon(Icons.home_filled),
             label: 'tabs.home'.tr(),
           ),
-
-          // 2 - BUSCAR
           BottomNavigationBarItem(
             icon: const _SearchGridIcon(),
             label: 'tabs.search'.tr(),
@@ -69,7 +70,6 @@ class _SearchGridIcon extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Círculo de la lupa
           Container(
             width: 18,
             height: 18,
@@ -78,8 +78,6 @@ class _SearchGridIcon extends StatelessWidget {
               shape: BoxShape.circle,
             ),
           ),
-
-          // Grid interno
           SizedBox(
             width: 10,
             height: 10,
@@ -91,8 +89,6 @@ class _SearchGridIcon extends StatelessWidget {
               }),
             ),
           ),
-
-          // Mango diagonal
           Positioned(
             bottom: 0,
             right: 0,
