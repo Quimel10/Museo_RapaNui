@@ -1,4 +1,3 @@
-// lib/features/home/presentation/state/home_notifier.dart
 import 'package:disfruta_antofagasta/features/home/domain/repositories/home_repository.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/state/home_state.dart';
 import 'package:disfruta_antofagasta/shared/utils/network_error.dart';
@@ -9,17 +8,20 @@ class HomeNotifier extends StateNotifier<HomeState> {
   final HomeRepository repository;
 
   String _currentLang = 'es';
-
   int _opToken = 0;
 
   HomeNotifier({required this.repository}) : super(HomeState.initial());
 
   Future<void> init(String lang) async {
+    // ✅ FIX PRO: si no haces esto, el repo sigue llamando con el idioma anterior
     _currentLang = lang;
-    final token = ++_opToken;
 
+    final token = ++_opToken;
     debugPrint('HOME init(lang=$lang) token=$token');
 
+    if (!mounted) return;
+
+    // ✅ Reset REAL
     state = state.copyWith(
       isLoadingBanners: true,
       isLoadingCategories: true,
@@ -45,21 +47,22 @@ class HomeNotifier extends StateNotifier<HomeState> {
   Future<void> refresh(String lang) async => init(lang);
 
   Future<void> _loadBanners(int token) async {
-    if (token != _opToken) return;
+    if (token != _opToken || !mounted) return;
 
     state = state.copyWith(isLoadingBanners: true, errorMessageBanner: null);
 
     try {
       final banners = await repository.getBanners(_currentLang);
 
-      if (token != _opToken) return;
+      if (token != _opToken || !mounted) return;
+
       state = state.copyWith(
         isLoadingBanners: false,
         banners: banners,
         errorMessageBanner: null,
       );
     } catch (e, st) {
-      if (token != _opToken) return;
+      if (token != _opToken || !mounted) return;
 
       debugPrint('HOME _loadBanners ERROR token=$token -> $e');
       debugPrintStack(stackTrace: st);
@@ -75,20 +78,21 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   Future<void> _loadCategories(int token) async {
-    if (token != _opToken) return;
+    if (token != _opToken || !mounted) return;
 
     state = state.copyWith(isLoadingCategories: true, errorMessage: null);
 
     try {
       final categories = await repository.getFeaturedCategory(_currentLang);
 
-      if (token != _opToken) return;
+      if (token != _opToken || !mounted) return;
+
       state = state.copyWith(
         isLoadingCategories: false,
         categories: categories,
       );
     } catch (e, st) {
-      if (token != _opToken) return;
+      if (token != _opToken || !mounted) return;
 
       debugPrint('HOME _loadCategories ERROR token=$token -> $e');
       debugPrintStack(stackTrace: st);
@@ -104,7 +108,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   Future<void> _loadFeaturedPlaces(int token, {int? categoryId}) async {
-    if (token != _opToken) return;
+    if (token != _opToken || !mounted) return;
 
     state = state.copyWith(isLoadingPlaces: true, errorMessage: null);
 
@@ -116,11 +120,11 @@ class HomeNotifier extends StateNotifier<HomeState> {
         lang: _currentLang,
       );
 
-      if (token != _opToken) return;
+      if (token != _opToken || !mounted) return;
 
       state = state.copyWith(isLoadingPlaces: false, places: places);
     } catch (e, st) {
-      if (token != _opToken) return;
+      if (token != _opToken || !mounted) return;
 
       debugPrint('HOME _loadFeaturedPlaces ERROR token=$token -> $e');
       debugPrintStack(stackTrace: st);
@@ -136,17 +140,18 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   Future<void> _loadWeather(int token) async {
-    if (token != _opToken) return;
+    if (token != _opToken || !mounted) return;
 
     state = state.copyWith(isLoadingWeather: true, errorMessage: null);
 
     try {
       final weather = await repository.getWeather(_currentLang);
 
-      if (token != _opToken) return;
+      if (token != _opToken || !mounted) return;
+
       state = state.copyWith(isLoadingWeather: false, weather: weather);
     } catch (e, st) {
-      if (token != _opToken) return;
+      if (token != _opToken || !mounted) return;
 
       debugPrint('HOME _loadWeather ERROR token=$token -> $e');
       debugPrintStack(stackTrace: st);
@@ -162,13 +167,18 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   Future<void> selectCategory(int? categoryId) async {
+    if (!mounted) return;
+
     final token = ++_opToken;
 
-    if (state.selectedCategoryId == categoryId) {
-      categoryId = 0;
+    var newCategoryId = categoryId;
+
+    // Toggle: si toca la misma categoría, vuelve a 0
+    if (state.selectedCategoryId == newCategoryId) {
+      newCategoryId = 0;
     }
 
-    state = state.copyWith(selectedCategoryId: categoryId);
-    await _loadFeaturedPlaces(token, categoryId: categoryId ?? 0);
+    state = state.copyWith(selectedCategoryId: newCategoryId);
+    await _loadFeaturedPlaces(token, categoryId: newCategoryId ?? 0);
   }
 }

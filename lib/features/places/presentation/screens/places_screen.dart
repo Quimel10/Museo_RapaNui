@@ -11,6 +11,7 @@ import 'package:disfruta_antofagasta/features/places/presentation/state/place_pr
 import 'package:disfruta_antofagasta/features/places/presentation/widgets/section_error.dart';
 import 'package:disfruta_antofagasta/shared/provider/api_client_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/dio_provider.dart'; // ✅ NUEVO
+import 'package:disfruta_antofagasta/shared/provider/provider.dart'; // ✅ FIX: analyticsProvider
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

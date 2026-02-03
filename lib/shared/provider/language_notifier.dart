@@ -1,54 +1,47 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-final languageProvider = StateNotifierProvider<LanguageNotifier, String>(
-  (ref) => LanguageNotifier(),
-);
+/// Provider del idioma actual (slug: es/en/pt/fr/it/ja)
+final languageProvider = StateNotifierProvider<LanguageNotifier, String>((ref) {
+  return LanguageNotifier(ref);
+});
 
 class LanguageNotifier extends StateNotifier<String> {
-  LanguageNotifier() : super('es') {
-    _load();
-  }
+  LanguageNotifier(this.ref) : super('es');
 
-  static const _key = 'language';
+  final Ref ref;
 
-  // 🌍 Idiomas soportados
-  static const supported = {'es', 'en', 'pt', 'fr', 'it', 'ja'};
+  /// ✅ Cambia idioma de forma segura y consistente.
+  /// Retorna true si cambió, false si era el mismo.
+  Future<bool> setLanguage(BuildContext context, String code) async {
+    final normalized = _normalize(code);
 
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_key);
+    if (state == normalized) return false;
 
-    if (saved != null && supported.contains(saved)) {
-      state = saved;
-    } else {
-      state = 'es';
-    }
-  }
+    state = normalized;
 
-  /// Cambia idioma y retorna true si realmente cambió (state anterior != nuevo).
-  Future<bool> setLanguage(
-    BuildContext context,
-    WidgetRef ref,
-    String lang,
-  ) async {
-    if (!supported.contains(lang)) return false;
-
-    // Si es el mismo idioma, no hagas nada.
-    if (state == lang && context.locale.languageCode == lang) {
-      return false;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, lang);
-    state = lang;
-
-    // Cambiar locale de la app
-    // ignore: use_build_context_synchronously
-    await context.setLocale(Locale(lang));
+    // ✅ cambia el locale en easy_localization
+    // OJO: easy_localization espera Locale('es'), Locale('en'), etc.
+    await context.setLocale(Locale(normalized));
 
     return true;
+  }
+
+  String _normalize(String code) {
+    var c = code.trim().toLowerCase();
+
+    // soportar ja_JP / ja-JP etc.
+    c = c.replaceAll('_', '-');
+    if (c.contains('-')) c = c.split('-').first;
+
+    // alias
+    if (c == 'jp') c = 'ja';
+
+    // whitelist (tu app)
+    const allowed = {'es', 'en', 'pt', 'fr', 'it', 'ja'};
+    if (!allowed.contains(c)) return 'es';
+
+    return c;
   }
 }

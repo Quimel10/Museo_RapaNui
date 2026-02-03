@@ -1,219 +1,213 @@
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class LanguageOnboardingGate {
-  static const _sessionKey = 'language_sheet_shown_session';
+  static bool _shownThisSession = false;
 
-  /// ✅ Mostrar SOLO una vez "por login".
-  /// (Se resetea en logout llamando resetSession()).
+  static Future<void> resetSession() async {
+    _shownThisSession = false;
+  }
+
+  static String _normalize(String code) {
+    final c = code.trim().toLowerCase().replaceAll('_', '-');
+    if (c.isEmpty) return 'es';
+    final base = c.split('-').first;
+    if (base == 'jp') return 'ja';
+    return base;
+  }
+
   static Future<void> showOncePerSession(
     BuildContext context, {
-    required Future<void> Function(String code) onConfirm,
+    required List<String> allowedCodes,
     required String initialCode,
+    required Future<void> Function(String code) onConfirm,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final alreadyShown = prefs.getBool(_sessionKey) ?? false;
+    if (_shownThisSession) return;
+    _shownThisSession = true;
 
-    if (alreadyShown) return;
+    // ✅ Idiomas soportados por EasyLocalization
+    final supported = context.supportedLocales
+        .map((l) => l.languageCode.toLowerCase())
+        .toSet();
 
-    // Marca como mostrado ANTES de abrir para evitar doble apertura
-    await prefs.setBool(_sessionKey, true);
+    // ✅ normaliza y filtra
+    final normalized = allowedCodes
+        .map(_normalize)
+        .where((c) => supported.contains(c))
+        .toSet()
+        .toList();
+
+    const order = ['es', 'en', 'pt', 'fr', 'it', 'ja'];
+    normalized.sort((a, b) => order.indexOf(a).compareTo(order.indexOf(b)));
+
+    if (normalized.isEmpty) return;
+
+    final current = supported.contains(_normalize(initialCode))
+        ? _normalize(initialCode)
+        : 'es';
+
+    String selected = normalized.contains(current) ? current : normalized.first;
 
     if (!context.mounted) return;
 
-    await show(context, onConfirm: onConfirm, initialCode: initialCode);
-  }
-
-  /// 👉 Mostrar siempre (uso interno)
-  static Future<void> show(
-    BuildContext context, {
-    required Future<void> Function(String code) onConfirm,
-    required String initialCode,
-  }) async {
-    await showModalBottomSheet<void>(
+    await showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isDismissible: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.6),
-      builder: (_) =>
-          _LanguageSheet(onConfirm: onConfirm, initialCode: initialCode),
-    );
-  }
-
-  /// ✅ Llamar esto SIEMPRE al hacer logout
-  static Future<void> resetSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_sessionKey);
-  }
-}
-
-// =======================================================
-// SHEET
-// =======================================================
-
-class _LanguageSheet extends StatefulWidget {
-  final Future<void> Function(String code) onConfirm;
-  final String initialCode;
-
-  const _LanguageSheet({required this.onConfirm, required this.initialCode});
-
-  @override
-  State<_LanguageSheet> createState() => _LanguageSheetState();
-}
-
-class _LanguageSheetState extends State<_LanguageSheet> {
-  late String _selected;
-  late String _previous;
-  bool _submitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = widget.initialCode;
-    _previous = widget.initialCode;
-  }
-
-  Future<void> _select(String code) async {
-    if (_selected == code) return;
-
-    HapticFeedback.selectionClick();
-    setState(() => _selected = code);
-
-    // 🔁 Preview inmediato del idioma (solo UI)
-    await context.setLocale(Locale(code));
-  }
-
-  Future<void> _cancel() async {
-    // Volver al idioma anterior
-    await context.setLocale(Locale(_previous));
-    if (mounted) Navigator.of(context).pop();
-  }
-
-  Future<void> _confirm() async {
-    if (_submitting) return;
-    setState(() => _submitting = true);
-
-    HapticFeedback.lightImpact();
-
-    // Cierra primero (premium feel)
-    Navigator.of(context).pop();
-
-    // Persiste idioma + refresh (lo hace el callback)
-    await widget.onConfirm(_selected);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-        decoration: const BoxDecoration(
-          color: Color(0xFF0F0F0F),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 44,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 14),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(10),
-              ),
+      isScrollControlled: true,
+      builder: (_) {
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
             ),
+            child: StatefulBuilder(
+              builder: (ctx, setState) {
+                final maxH = MediaQuery.of(ctx).size.height * 0.75;
 
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'language_onboarding.title'.tr(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'language_onboarding.subtitle'.tr(),
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ),
-            const SizedBox(height: 16),
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxH),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text(
+                          'language_onboarding.title'.tr(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'language_onboarding.subtitle'.tr(),
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.75),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
-            _tile('es', '🇪🇸', 'Español'),
-            _tile('en', '🇬🇧', 'English'),
-            _tile('pt', '🇧🇷', 'Português'),
-            _tile('fr', '🇫🇷', 'Français'),
-            _tile('it', '🇮🇹', 'Italiano'),
-            _tile('ja', '🇯🇵', '日本語'),
+                        // ✅ AQUÍ ESTÁ EL FIX: al tocar la fila, cambiar locale de verdad
+                        ...normalized.map((code) {
+                          final isSel = code == selected;
+                          return InkWell(
+                            onTap: () async {
+                              // 1) marcar selección visual
+                              setState(() => selected = code);
 
-            const SizedBox(height: 16),
+                              // 2) traducir INMEDIATO al tocar idioma
+                              await context.setLocale(Locale(code));
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(
+                                  isSel ? 0.12 : 0.06,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSel
+                                      ? Colors.white.withOpacity(0.30)
+                                      : Colors.white.withOpacity(0.10),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _label(code),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    isSel
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
 
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _confirm,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () async {
+                              Navigator.of(ctx).pop();
+
+                              // ✅ Mantén tu flujo: aquí haces lo que necesites
+                              // (guardar idioma, refrescar data, llamar API, etc.)
+                              await onConfirm(selected);
+                            },
+                            child: Text('language_onboarding.confirm'.tr()),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Center(
+                          child: TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: Text(
+                              'language_onboarding.skip'.tr(),
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.75),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                child: Text(
-                  'language_onboarding.confirm'.tr(),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+                );
+              },
             ),
-
-            TextButton(
-              onPressed: _cancel,
-              child: Text(
-                'language_onboarding.skip'.tr(),
-                style: const TextStyle(color: Colors.white70),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _tile(String code, String flag, String label) {
-    final selected = _selected == code;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: selected ? Colors.white : Colors.white12,
-          width: selected ? 1.2 : 1,
-        ),
-      ),
-      child: ListTile(
-        onTap: () => _select(code),
-        leading: Text(flag, style: const TextStyle(fontSize: 18)),
-        title: Text(label, style: const TextStyle(color: Colors.white)),
-        trailing: Icon(
-          selected ? Icons.radio_button_checked : Icons.radio_button_off,
-          color: selected ? Colors.white : Colors.white38,
-        ),
-      ),
-    );
+  static String _label(String code) {
+    switch (code) {
+      case 'es':
+        return '🇪🇸 Español';
+      case 'en':
+        return '🇬🇧 English';
+      case 'pt':
+        return '🇧🇷 Português';
+      case 'fr':
+        return '🇫🇷 Français';
+      case 'it':
+        return '🇮🇹 Italiano';
+      case 'ja':
+        return '🇯🇵 日本語';
+      default:
+        return code.toUpperCase();
+    }
   }
 }

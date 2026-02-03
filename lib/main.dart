@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:disfruta_antofagasta/config/constants/enviroment.dart';
 import 'package:disfruta_antofagasta/config/router/app_router.dart';
 import 'package:disfruta_antofagasta/config/theme/theme_provider.dart';
-import 'package:disfruta_antofagasta/shared/session_manager.dart';
-import 'package:disfruta_antofagasta/shared/session_flag.dart';
 import 'package:disfruta_antofagasta/shared/screens/app_loading_wrapper.dart';
+import 'package:disfruta_antofagasta/shared/session_flag.dart';
+import 'package:disfruta_antofagasta/shared/session_manager.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +26,6 @@ class NoGlowScrollBehavior extends ScrollBehavior {
 Future<void> _ensureAndroidNotificationPermission() async {
   if (!Platform.isAndroid) return;
 
-  // permission_handler lo maneja internamente por SDK.
   final status = await Permission.notification.status;
   if (status.isDenied || status.isRestricted || status.isLimited) {
     await Permission.notification.request();
@@ -38,7 +37,6 @@ Future<void> main() async {
   await EasyLocalization.ensureInitialized();
   await Environment.initEnvironment();
 
-  // ✅ Android 13+ permiso notificaciones
   await _ensureAndroidNotificationPermission();
 
   // 👇 LEER SESIÓN GUARDADA ANTES DE LEVANTAR LA APP
@@ -53,7 +51,7 @@ Future<void> main() async {
         Locale('pt'),
         Locale('fr'),
         Locale('it'),
-        Locale('ja'),
+        Locale('ja'), // ✅ REHABILITADO
       ],
       path: 'assets/i18n',
       fallbackLocale: const Locale('es'),

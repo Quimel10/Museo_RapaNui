@@ -13,6 +13,8 @@ import 'package:disfruta_antofagasta/shared/provider/api_client_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/auth_mode_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
 import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
+import 'package:disfruta_antofagasta/shared/provider/available_languages_provider.dart';
+import 'package:disfruta_antofagasta/shared/provider/provider.dart'; // ✅ FIX: aquí vive analyticsProvider
 import 'package:disfruta_antofagasta/shared/session_flag.dart';
 import 'package:disfruta_antofagasta/shared/session_manager.dart';
 import 'package:disfruta_antofagasta/config/router/routes.dart';
@@ -34,17 +36,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _refreshDashboard() async {
     final lang = ref.read(languageProvider);
 
-    // ✅ FIX CLAVE:
-    // Invalida el provider para forzar reconstrucción + recarga real (rompe cache/estado viejo)
-    debugPrint('HOME REFRESH -> invalidate homeProvider (lang=$lang)');
-    ref.invalidate(homeProvider);
-
-    // Pequeño delay para permitir reconstrucción ordenada
-    await Future.delayed(const Duration(milliseconds: 80));
-
-    debugPrint('HOME REFRESH -> calling homeProvider.refresh(lang=$lang)');
+    debugPrint('HOME REFRESH -> refresh(lang=$lang)');
     await ref.read(homeProvider.notifier).refresh(lang);
-
     debugPrint('HOME REFRESH -> DONE');
   }
 
@@ -56,16 +49,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     boot.show(message);
 
     try {
-      // ✅ MISMO FIX EN CARGA CON OVERLAY
-      debugPrint('HOME OVERLAY LOAD -> invalidate homeProvider (lang=$lang)');
-      ref.invalidate(homeProvider);
+      debugPrint('HOME OVERLAY LOAD -> refresh(lang=$lang)');
 
-      await Future.delayed(const Duration(milliseconds: 80));
+      // ✅ fuerza refetch de idiomas (por si WP cambió recien)
+      ref.invalidate(availableLanguagesProvider);
 
-      debugPrint(
-        'HOME OVERLAY LOAD -> calling homeProvider.refresh(lang=$lang)',
-      );
       await ref.read(homeProvider.notifier).refresh(lang);
+
+      // ✅ vuelve a invalidar para UI actualizada
+      ref.invalidate(availableLanguagesProvider);
 
       debugPrint('HOME OVERLAY LOAD -> DONE');
     } finally {
@@ -96,14 +88,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await Future.delayed(const Duration(milliseconds: 350));
       if (!mounted) return;
 
+      // ✅ fuerza refetch real
+      ref.invalidate(availableLanguagesProvider);
+
+      // ✅ leer idiomas disponibles desde WP
+      final allowed = await ref.read(availableLanguagesProvider.future);
+
       await LanguageOnboardingGate.showOncePerSession(
         context,
+        allowedCodes: allowed,
         initialCode: ref.read(languageProvider),
         onConfirm: (code) async {
-          await ref
+          final changed = await ref
               .read(languageProvider.notifier)
-              .setLanguage(context, ref, code);
-          await _loadWithOverlay(code, message: 'Cargando piezas…');
+              .setLanguage(context, code);
+
+          if (changed) {
+            await _loadWithOverlay(code, message: 'Cargando piezas…');
+          }
         },
       );
     });
@@ -121,7 +123,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final places = state.places ?? const <PlaceEntity>[];
     final boot = ref.watch(homeBootLoaderProvider);
 
-    // DEBUG útil (puedes quitarlo después)
+    final availableAsync = ref.watch(availableLanguagesProvider);
+    final currentLang = ref.watch(languageProvider);
+
     debugPrint(
       'HOME BUILD -> isLoadingPlaces=${state.isLoadingPlaces} places=${places.length}',
     );
@@ -130,6 +134,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final double heroCardWidth = screenWidth * 0.86;
     final double heroCardHeight = 300;
 
+    // ✅ idiomas desde WP (si falla, fallback base)
+    final availableLangs = availableAsync.maybeWhen(
+      data: (v) => v.isEmpty ? const ['es', 'en', 'pt', 'fr', 'it'] : v,
+      orElse: () => const ['es', 'en', 'pt', 'fr', 'it'],
+    );
+
+    // ✅ si current no existe en lista, normalizamos a es (evita dropdown crash)
+    final safeCurrentLang = availableLangs.contains(currentLang)
+        ? currentLang
+        : 'es';
+
+    // ✅ si hubo normalización, corregimos provider post-frame (solo una vez)
+    if (safeCurrentLang != currentLang) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+
+        final changed = await ref
+            .read(languageProvider.notifier)
+            .setLanguage(context, safeCurrentLang);
+
+        if (changed) {
+          await _loadWithOverlay(safeCurrentLang, message: 'Cargando piezas…');
+        }
+      });
+    }
+
     return Stack(
       children: [
         Scaffold(
@@ -137,8 +167,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           appBar: AppBar(
             backgroundColor: Colors.black,
             elevation: 0,
-
-            // ✅ FIX: evita ellipsis -> scaleDown si falta espacio
             title: Align(
               alignment: Alignment.centerLeft,
               child: FittedBox(
@@ -153,7 +181,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
-
             leading: Consumer(
               builder: (context, ref, _) => IconButton(
                 tooltip: 'home.logout_tooltip'.tr(),
@@ -174,7 +201,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             actions: [
               Consumer(
                 builder: (context, ref, _) {
-                  final lang = ref.watch(languageProvider);
                   return Container(
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(
@@ -187,60 +213,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
-                        value: lang,
+                        value: safeCurrentLang,
                         dropdownColor: AppColors.panel,
                         iconEnabledColor: Colors.white,
                         style: const TextStyle(color: Colors.white),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'es',
+                        items: availableLangs.map((code) {
+                          return DropdownMenuItem<String>(
+                            value: code,
                             child: Text(
-                              '🇪🇸 ES',
-                              style: TextStyle(color: Colors.white),
+                              _langLabel(code),
+                              style: const TextStyle(color: Colors.white),
                             ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'en',
-                            child: Text(
-                              '🇬🇧 EN',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'pt',
-                            child: Text(
-                              '🇧🇷 PT',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'fr',
-                            child: Text(
-                              '🇫🇷 FR',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'it',
-                            child: Text(
-                              '🇮🇹 IT',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'ja',
-                            child: Text(
-                              '🇯🇵 JA',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ],
+                          );
+                        }).toList(),
                         onChanged: (v) async {
                           if (v == null) return;
 
                           final changed = await ref
                               .read(languageProvider.notifier)
-                              .setLanguage(context, ref, v);
+                              .setLanguage(context, v);
 
                           if (changed) {
                             await _loadWithOverlay(
@@ -254,10 +245,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   );
                 },
               ),
-
               if (state.weather != null)
-                // ✅ FIX CLAVE: este Row NO puede expandirse.
-                // Si se expande, le roba todo el ancho al título y lo trunca.
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -348,7 +336,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-
                 CategoryChipsList(
                   items: state.categories ?? const [],
                   selectedId: state.selectedCategoryId,
@@ -368,9 +355,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ref.read(homeProvider.notifier).selectCategory(cat.id);
                   },
                 ),
-
                 const SizedBox(height: 14),
-
                 if (state.isLoadingPlaces) ...[
                   SizedBox(
                     height: heroCardHeight,
@@ -414,23 +399,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   if (places.length > 1)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(places.length, (i) {
-                        final active = i == _currentPlacePage;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: active ? 10 : 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: active
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.35),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        );
-                      }),
+                    Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: List.generate(
+                          places.length > 12 ? 12 : places.length,
+                          (i) {
+                            final active = i == _currentPlacePage;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: active ? 10 : 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: active
+                                    ? Colors.white
+                                    : Colors.white.withOpacity(0.35),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                 ] else ...[
                   Text(
@@ -438,9 +429,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ],
-
                 const SizedBox(height: 28),
-
                 Text(
                   'home.info_banners'.tr(),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -449,15 +438,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-
                 if (state.isLoadingBanners) const BannerSkeleton(),
-
                 if (!state.isLoadingBanners && state.errorMessageBanner != null)
                   BannerError(
                     message: 'home.banner_load_error'.tr(),
                     onRetry: _refreshDashboard,
                   ),
-
                 if (!state.isLoadingBanners &&
                     state.errorMessageBanner == null &&
                     (state.banners?.isNotEmpty ?? false))
@@ -472,7 +458,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           );
                     },
                   ),
-
                 if (!state.isLoadingBanners &&
                     state.errorMessageBanner == null &&
                     (state.banners?.isEmpty ?? true))
@@ -486,13 +471,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
-
                 const SizedBox(height: 100),
               ],
             ),
           ),
         ),
-
         if (boot.isLoading)
           Positioned.fill(
             child: Container(
@@ -527,6 +510,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
       ],
     );
+  }
+
+  String _langLabel(String code) {
+    switch (code) {
+      case 'es':
+        return '🇪🇸 ES';
+      case 'en':
+        return '🇬🇧 EN';
+      case 'pt':
+        return '🇧🇷 PT';
+      case 'fr':
+        return '🇫🇷 FR';
+      case 'it':
+        return '🇮🇹 IT';
+      case 'ja':
+        return '🇯🇵 JA';
+      default:
+        return code.toUpperCase();
+    }
   }
 }
 
