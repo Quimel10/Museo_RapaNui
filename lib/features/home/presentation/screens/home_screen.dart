@@ -1,6 +1,7 @@
 // lib/features/home/presentation/screens/home_screen.dart
 import 'package:disfruta_antofagasta/config/theme/theme_config.dart';
 import 'package:disfruta_antofagasta/features/auth/presentation/state/auth/auth_provider.dart';
+import 'package:disfruta_antofagasta/features/auth/presentation/state/auth/auth_state.dart'; // ✅ AuthStatus
 import 'package:disfruta_antofagasta/features/home/domain/entities/place.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/state/home_provider.dart';
 import 'package:disfruta_antofagasta/features/home/presentation/state/home_boot_loader.dart';
@@ -14,7 +15,7 @@ import 'package:disfruta_antofagasta/shared/provider/auth_mode_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/language_notifier.dart';
 import 'package:disfruta_antofagasta/shared/provider/now_playing_provider.dart';
 import 'package:disfruta_antofagasta/shared/provider/available_languages_provider.dart';
-import 'package:disfruta_antofagasta/shared/provider/provider.dart'; // ✅ FIX: aquí vive analyticsProvider
+import 'package:disfruta_antofagasta/shared/provider/provider.dart'; // analyticsProvider
 import 'package:disfruta_antofagasta/shared/session_flag.dart';
 import 'package:disfruta_antofagasta/shared/session_manager.dart';
 import 'package:disfruta_antofagasta/config/router/routes.dart';
@@ -51,12 +52,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       debugPrint('HOME OVERLAY LOAD -> refresh(lang=$lang)');
 
-      // ✅ fuerza refetch de idiomas (por si WP cambió recien)
       ref.invalidate(availableLanguagesProvider);
-
       await ref.read(homeProvider.notifier).refresh(lang);
-
-      // ✅ vuelve a invalidar para UI actualizada
       ref.invalidate(availableLanguagesProvider);
 
       debugPrint('HOME OVERLAY LOAD -> DONE');
@@ -88,13 +85,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await Future.delayed(const Duration(milliseconds: 350));
       if (!mounted) return;
 
-      // ✅ fuerza refetch real
-      ref.invalidate(availableLanguagesProvider);
+      // ✅ SOLO si está autenticado (NO guest)
+      final authStatus = ref.read(authProvider).authStatus;
+      if (authStatus != AuthStatus.authenticated) return;
 
-      // ✅ leer idiomas disponibles desde WP
+      // ✅ idiomas desde WP
+      ref.invalidate(availableLanguagesProvider);
       final allowed = await ref.read(availableLanguagesProvider.future);
 
-      await LanguageOnboardingGate.showOncePerSession(
+      // ✅ 1 vez por ciclo de login (y no vuelve al cerrar/abrir)
+      await LanguageOnboardingGate.showOncePerLoginCycle(
         context,
         allowedCodes: allowed,
         initialCode: ref.read(languageProvider),
@@ -134,18 +134,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final double heroCardWidth = screenWidth * 0.86;
     final double heroCardHeight = 300;
 
-    // ✅ idiomas desde WP (si falla, fallback base)
     final availableLangs = availableAsync.maybeWhen(
       data: (v) => v.isEmpty ? const ['es', 'en', 'pt', 'fr', 'it'] : v,
       orElse: () => const ['es', 'en', 'pt', 'fr', 'it'],
     );
 
-    // ✅ si current no existe en lista, normalizamos a es (evita dropdown crash)
     final safeCurrentLang = availableLangs.contains(currentLang)
         ? currentLang
         : 'es';
 
-    // ✅ si hubo normalización, corregimos provider post-frame (solo una vez)
     if (safeCurrentLang != currentLang) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -186,7 +183,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 tooltip: 'home.logout_tooltip'.tr(),
                 icon: const Icon(Icons.logout, color: Colors.white, size: 22),
                 onPressed: () async {
-                  await LanguageOnboardingGate.resetSession();
+                  // ✅ CLAVE: al logout habilitamos que se muestre en el próximo login
+                  await LanguageOnboardingGate.clearForNextLogin();
 
                   SessionFlag.hasPersistedSession = false;
                   await SessionManager.clearSession();

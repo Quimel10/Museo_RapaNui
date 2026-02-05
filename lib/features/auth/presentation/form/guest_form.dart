@@ -20,6 +20,9 @@ class _GuestFormState extends ConsumerState<GuestForm> {
     Future.microtask(() => ref.read(guestFormProvider.notifier).bootstrap());
   }
 
+  bool _isLocalVisitor(String? v) =>
+      v == 'local_rapanui' || v == 'local_no_rapanui';
+
   Future<void> _submit() async {
     final s0 = ref.read(guestFormProvider);
     if (!s0.canSubmit || s0.isPosting) return;
@@ -33,10 +36,11 @@ class _GuestFormState extends ConsumerState<GuestForm> {
 
     final hasCountry = s.selectedCountry != null;
 
-    // ✅ Regla nueva: Región SOLO si el país lo requiere
+    // ✅ Región SOLO si el país lo requiere
     final showRegion = hasCountry && s.needsRegion;
-
     final regionEnabled = showRegion && !s.isPosting && !s.isLoadingRegions;
+
+    final disableStay = _isLocalVisitor(s.visitorType);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -82,29 +86,64 @@ class _GuestFormState extends ConsumerState<GuestForm> {
         ),
         const SizedBox(height: 12),
 
-        TextFormField(
+        // ✅ Tipo de visitante (debajo de Edad)
+        DropdownButtonFormField<String>(
+          value: (s.visitorType == null || s.visitorType!.trim().isEmpty)
+              ? null
+              : s.visitorType,
+          isExpanded: true,
+          dropdownColor: Colors.white,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.black87,
+          ),
+          iconEnabledColor: Colors.black87,
+          iconDisabledColor: Colors.black38,
           style: const TextStyle(color: Colors.black),
-          initialValue: s.stay?.toString() ?? '',
-          onChanged: n.daysStayChanged,
-          keyboardType: const TextInputType.numberWithOptions(
-            signed: false,
-            decimal: false,
+          hint: const Text(
+            'Tipo de visitante',
+            style: TextStyle(color: Colors.black54),
           ),
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          validator: (v) {
-            if (v == null || v.trim().isEmpty) return 'Requerido';
-            final x = int.tryParse(v);
-            if (x == null) return 'Solo números';
-            if (x <= 0) return 'Debe ser > 0';
-            if (x > 365) return 'Máx 365';
-            return null;
-          },
           decoration: _glassInput(
-            'Días de visita',
-            prefix: const Icon(Icons.today_outlined),
-            suffixText: 'días',
+            'Tipo de visitante',
+            prefix: const Icon(Icons.badge_outlined),
           ),
+          items: const [
+            DropdownMenuItem(
+              value: 'local_rapanui',
+              child: Text(
+                'Local (RapaNui)',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'local_no_rapanui',
+              child: Text(
+                'Local no RapaNui',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'continental',
+              child: Text(
+                'Continental',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'extranjero',
+              child: Text(
+                'Extranjero',
+                style: TextStyle(color: Colors.black87),
+              ),
+            ),
+          ],
+          onChanged: s.isPosting
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  n.visitorTypeChanged(v);
+                },
         ),
         const SizedBox(height: 12),
 
@@ -194,66 +233,40 @@ class _GuestFormState extends ConsumerState<GuestForm> {
           ),
         ],
 
+        // ✅✅ AHORA: Días de visita al FINAL (último input antes del botón)
         const SizedBox(height: 12),
+        TextFormField(
+          enabled: !disableStay && !s.isPosting,
+          style: TextStyle(
+            color: (!disableStay && !s.isPosting)
+                ? Colors.black
+                : Colors.black38,
+          ),
+          initialValue: s.stay?.toString() ?? '',
+          onChanged: (!disableStay && !s.isPosting) ? n.daysStayChanged : null,
+          keyboardType: const TextInputType.numberWithOptions(
+            signed: false,
+            decimal: false,
+          ),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          validator: (v) {
+            // ✅ Si es Local, NO exigir días
+            if (disableStay) return null;
 
-        // ✅ Tipo de visitante (SINCRONIZADO - keys canónicos)
-        DropdownButtonFormField<String>(
-          value: (s.visitorType == null || s.visitorType!.trim().isEmpty)
-              ? null
-              : s.visitorType,
-          isExpanded: true,
-          dropdownColor: Colors.white,
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: Colors.black87,
-          ),
-          iconEnabledColor: Colors.black87,
-          iconDisabledColor: Colors.black38,
-          style: const TextStyle(color: Colors.black),
-          hint: const Text(
-            'Tipo de visitante',
-            style: TextStyle(color: Colors.black54),
-          ),
+            if (v == null || v.trim().isEmpty) return 'Requerido';
+            final x = int.tryParse(v);
+            if (x == null) return 'Solo números';
+            if (x <= 0) return 'Debe ser > 0';
+            if (x > 365) return 'Máx 365';
+            return null;
+          },
           decoration: _glassInput(
-            'Tipo de visitante',
-            prefix: const Icon(Icons.badge_outlined),
+            'Días de visita',
+            prefix: const Icon(Icons.today_outlined),
+            suffixText: 'días',
+            enabled: !disableStay && !s.isPosting,
           ),
-          items: const [
-            DropdownMenuItem(
-              value: 'local_rapanui',
-              child: Text(
-                'Local (RapaNui)',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'local_no_rapanui',
-              child: Text(
-                'Local no RapaNui',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'continental',
-              child: Text(
-                'Continental',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'extranjero',
-              child: Text(
-                'Extranjero',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-          ],
-          onChanged: s.isPosting
-              ? null
-              : (v) {
-                  if (v == null) return;
-                  n.visitorTypeChanged(v);
-                },
         ),
         const SizedBox(height: 12),
 
@@ -289,19 +302,26 @@ class _GuestFormState extends ConsumerState<GuestForm> {
     Widget? prefix,
     String? suffixText,
     Widget? suffix,
+    bool enabled = true,
   }) {
+    final fill = enabled
+        ? Colors.white.withValues(alpha: 0.92)
+        : Colors.white.withValues(alpha: 0.55);
+
+    final hintColor = enabled ? Colors.black54 : Colors.black38;
+
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.black54),
+      hintStyle: TextStyle(color: hintColor),
       prefixIcon: prefix,
-      prefixIconColor: Colors.black45,
+      prefixIconColor: enabled ? Colors.black45 : Colors.black26,
       suffixIcon: suffix,
-      suffixIconColor: Colors.black45,
+      suffixIconColor: enabled ? Colors.black45 : Colors.black26,
       suffixText: suffixText,
-      suffixStyle: const TextStyle(color: Colors.black54),
+      suffixStyle: TextStyle(color: hintColor),
       labelStyle: const TextStyle(color: Colors.black),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.92),
+      fillColor: fill,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),

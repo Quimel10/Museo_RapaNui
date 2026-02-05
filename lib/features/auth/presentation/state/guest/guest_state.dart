@@ -40,10 +40,16 @@ class GuestFormState {
   /// - ya llegaron regiones (no vacío)
   bool get needsRegion => isLoadingRegions || regions.isNotEmpty;
 
+  bool get _isLocalVisitor =>
+      visitorType == 'local_rapanui' || visitorType == 'local_no_rapanui';
+
   bool get canSubmit {
     final hasName = name.trim().isNotEmpty;
     final hasAge = age != null && age! > 1;
-    final hasStay = stay != null && stay! > 0;
+
+    // ✅ Si es local, NO exigir stay
+    final hasStay = _isLocalVisitor ? true : (stay != null && stay! > 0);
+
     final hasCountry = selectedCountry != null;
     final hasVisitor = visitorType != null && visitorType!.trim().isNotEmpty;
 

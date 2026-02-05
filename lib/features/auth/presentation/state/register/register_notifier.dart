@@ -25,6 +25,9 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
     required this.registerUserCallback,
   }) : super(const RegisterFormState());
 
+  bool _isLocalVisitor(String? v) =>
+      v == 'local_rapanui' || v == 'local_no_rapanui';
+
   Future<void> bootstrap() async {
     state = state.copyWith(isLoadingCountries: true, clearError: true);
 
@@ -58,6 +61,9 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
         state = state.copyWith(age: v, clearError: true);
         return;
       case 'stay':
+        // ✅ Si es local, ignorar cualquier intento de setear stay
+        if (_isLocalVisitor(state.visitorType)) return;
+
         final v = int.tryParse(value.trim());
         state = state.copyWith(stay: v, clearError: true);
         return;
@@ -81,8 +87,6 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
     // Cancelar request anterior de regiones si existe
     await _regionsOp?.cancel();
 
-    // Si tu backend decide “needsRegion” por tener regiones,
-    // cargamos y si viene vacío -> el dropdown no se renderiza.
     state = state.copyWith(isLoadingRegions: true, regions: const []);
 
     final op = CancelableOperation.fromFuture(loadRegionsByCode(c.code));
@@ -90,7 +94,6 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
 
     try {
       final list = await op.value;
-      // si otro op se creó después, ignoramos este resultado
       if (_regionsOp != op) return;
 
       state = state.copyWith(isLoadingRegions: false, regions: list);
@@ -104,10 +107,17 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
     state = state.copyWith(selectedRegionId: id, clearError: true);
   }
 
-  /// ✅ Aquí se setea el KEY canónico desde el dropdown:
+  /// ✅ KEY canónico desde dropdown:
   /// local_rapanui | local_no_rapanui | continental | extranjero
   void visitorTypeChanged(String v) {
-    state = state.copyWith(visitorType: v, clearError: true);
+    final isLocal = _isLocalVisitor(v);
+
+    state = state.copyWith(
+      visitorType: v,
+      // ✅ si pasa a local, borrar días
+      stay: isLocal ? null : state.stay,
+      clearError: true,
+    );
   }
 
   Future<void> submit() async {
@@ -121,6 +131,8 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
     state = state.copyWith(isPosting: true, clearError: true);
 
     try {
+      final isLocal = _isLocalVisitor(state.visitorType);
+
       final user = RegisterUser(
         name: state.name,
         lastname: state.last,
@@ -129,7 +141,10 @@ class RegisterFormNotifier extends StateNotifier<RegisterFormState> {
         countryCode: state.selectedCountry!.code,
         regionId: state.needsRegion ? state.selectedRegionId : null,
         age: state.age,
-        daysStay: state.stay,
+
+        // ✅ local => no enviar días
+        daysStay: isLocal ? null : state.stay,
+
         visitorType: state.visitorType!, // ✅ KEY canónico
         device: null,
         arrivalDate: null,

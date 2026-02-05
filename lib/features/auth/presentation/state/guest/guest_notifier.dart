@@ -32,6 +32,9 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
     required this.submitGuest,
   }) : super(const GuestFormState());
 
+  bool _isLocalVisitor(String? v) =>
+      v == 'local_rapanui' || v == 'local_no_rapanui';
+
   Future<void> bootstrap() async {
     final req = ++_countriesReqId;
 
@@ -66,13 +69,19 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
   }
 
   void visitorTypeChanged(String v) {
-    state = state.copyWith(visitorType: v, clearError: true);
+    final willDisableStay = _isLocalVisitor(v);
+
+    state = state.copyWith(
+      visitorType: v,
+      // ✅ si pasa a local, borramos stay
+      stay: willDisableStay ? null : state.stay,
+      clearError: true,
+    );
   }
 
   Future<void> countryChanged(Country? c) async {
     if (c == null) return;
 
-    // ✅ Limpia región antes de recargar (evita crash por value inexistente)
     state = state.copyWith(
       selectedCountry: c,
       regions: const [],
@@ -113,7 +122,6 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
   Future<void> submit() async {
     if (state.isPosting) return;
 
-    // ✅ NO preseleccionamos: obliga a elegir
     if (state.visitorType == null || state.visitorType!.trim().isEmpty) {
       state = state.copyWith(error: 'Selecciona el tipo de visitante.');
       return;
@@ -128,13 +136,15 @@ class GuestFormNotifier extends StateNotifier<GuestFormState> {
 
     try {
       final cc = state.selectedCountry!.code.trim().toUpperCase();
+      final isLocal = _isLocalVisitor(state.visitorType);
 
       await submitGuest(
         name: state.name.trim(),
         countryCode: cc,
         visitorType: state.visitorType!.trim(),
         regionId: state.needsRegion ? state.selectedRegionId : null,
-        day: state.stay,
+        // ✅ local => no mandar días
+        day: isLocal ? null : state.stay,
         age: state.age,
       );
 

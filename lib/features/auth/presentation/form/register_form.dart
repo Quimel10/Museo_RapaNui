@@ -28,6 +28,9 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
     await ref.read(registerFormProvider.notifier).submit();
   }
 
+  bool _isLocalVisitor(String? v) =>
+      v == 'local_rapanui' || v == 'local_no_rapanui';
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(registerFormProvider);
@@ -36,19 +39,23 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
 
     final hasCountry = s.selectedCountry != null;
 
-    // ✅ Regla nueva: Región SOLO si el país lo requiere
+    // ✅ Región SOLO si el país lo requiere
     final showRegion = hasCountry && s.needsRegion;
-
     final regionEnabled = showRegion && !s.isPosting && !s.isLoadingRegions;
+
+    final isLocal = _isLocalVisitor(s.visitorType);
+    final stayEnabled = !s.isPosting && !isLocal; // ✅ local => disabled
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Nombre + Apellido
         Row(
           children: [
             Expanded(
               child: _rounded(
                 hint: 'Nombre',
+                enabled: !s.isPosting,
                 onChanged: (v) => n.setField('name', v),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Requerido';
@@ -60,6 +67,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
             Expanded(
               child: _rounded(
                 hint: 'Apellido',
+                enabled: !s.isPosting,
                 onChanged: (v) => n.setField('last', v),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Requerido';
@@ -71,61 +79,105 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
         ),
         const SizedBox(height: 12),
 
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: _rounded(
-                hint: 'Edad',
-                keyboard: const TextInputType.numberWithOptions(
-                  signed: false,
-                  decimal: false,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(3),
-                ],
-                onChanged: (v) => n.setField('age', v),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Requerido';
-                  final nn = int.tryParse(v);
-                  if (nn == null) return 'Solo números';
-                  if (nn <= 1) return 'Mayor a 1';
-                  if (nn > 120) return 'Edad inválida';
-                  return null;
-                },
+        // ✅ Edad (ancho completo)
+        _rounded(
+          hint: 'Edad',
+          enabled: !s.isPosting,
+          keyboard: const TextInputType.numberWithOptions(
+            signed: false,
+            decimal: false,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(3),
+          ],
+          onChanged: (v) => n.setField('age', v),
+          validator: (v) {
+            if (v == null || v.trim().isEmpty) return 'Requerido';
+            final nn = int.tryParse(v);
+            if (nn == null) return 'Solo números';
+            if (nn <= 1) return 'Mayor a 1';
+            if (nn > 120) return 'Edad inválida';
+            return null;
+          },
+        ),
+        const SizedBox(height: 12),
+
+        // ✅ Tipo de visitante (debajo de edad)
+        DropdownButtonFormField<String>(
+          value: (s.visitorType == null || s.visitorType!.trim().isEmpty)
+              ? null
+              : s.visitorType,
+          isExpanded: true,
+          dropdownColor: Colors.white,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.black87,
+          ),
+          iconEnabledColor: Colors.black87,
+          iconDisabledColor: Colors.black38,
+          style: const TextStyle(color: Colors.black),
+          hint: const Text(
+            'Tipo de visitante',
+            style: TextStyle(color: Colors.black54),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          decoration: _decoration(
+            'Tipo de visitante',
+            prefix: const Icon(Icons.badge_outlined),
+            enabled: !s.isPosting,
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: 'local_rapanui',
+              child: Text(
+                'Local (RapaNui)',
+                style: TextStyle(color: Colors.black87),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 3,
-              child: _rounded(
-                hint: 'Días de visita',
-                keyboard: const TextInputType.numberWithOptions(
-                  signed: false,
-                  decimal: false,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(3),
-                ],
-                onChanged: (v) => n.setField('stay', v),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Requerido';
-                  final nn = int.tryParse(v);
-                  if (nn == null) return 'Solo números';
-                  if (nn <= 0) return 'Debe ser > 0';
-                  if (nn > 365) return 'Máx 365';
-                  return null;
-                },
+            DropdownMenuItem(
+              value: 'local_no_rapanui',
+              child: Text(
+                'Local no RapaNui',
+                style: TextStyle(color: Colors.black87),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'continental',
+              child: Text(
+                'Continental',
+                style: TextStyle(color: Colors.black87),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'extranjero',
+              child: Text(
+                'Extranjero',
+                style: TextStyle(color: Colors.black87),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ),
           ],
+          onChanged: s.isPosting
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  n.visitorTypeChanged(v);
+                },
         ),
         const SizedBox(height: 12),
 
         _rounded(
           hint: 'Correo electrónico',
+          enabled: !s.isPosting,
           keyboard: TextInputType.emailAddress,
           onChanged: (v) => n.setField('email', v),
         ),
@@ -133,6 +185,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
 
         _rounded(
           hint: 'Contraseña',
+          enabled: !s.isPosting,
           obscure: obscure,
           suffix: IconButton(
             icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
@@ -158,10 +211,13 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
           hint: Text(
             s.isLoadingCountries ? 'Cargando países…' : 'País',
             style: const TextStyle(color: Colors.black54),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
           decoration: _decoration(
             'País',
             prefix: const Icon(Icons.public_outlined),
+            enabled: !(s.isPosting || s.isLoadingCountries),
             suffix: s.isLoadingCountries
                 ? const SizedBox(
                     width: 18,
@@ -178,6 +234,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
                     c.name,
                     style: const TextStyle(color: Colors.black87),
                     overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               )
@@ -201,10 +258,16 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
             iconEnabledColor: Colors.black87,
             iconDisabledColor: Colors.black38,
             style: const TextStyle(color: Colors.black),
-            hint: const Text('Región', style: TextStyle(color: Colors.black54)),
+            hint: const Text(
+              'Región',
+              style: TextStyle(color: Colors.black54),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
             decoration: _decoration(
               'Región',
               prefix: const Icon(Icons.map_outlined),
+              enabled: regionEnabled,
               suffix: (s.isLoadingRegions)
                   ? const SizedBox(
                       width: 18,
@@ -221,6 +284,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
                       r.name,
                       style: const TextStyle(color: Colors.black87),
                       overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 )
@@ -229,67 +293,31 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
           ),
         ],
 
+        // ✅✅ AHORA: Días de visita al FINAL (último input antes del botón)
         const SizedBox(height: 12),
-
-        // ✅ Tipo de visitante (keys canónicos sincronizados con WP)
-        DropdownButtonFormField<String>(
-          value: (s.visitorType == null || s.visitorType!.trim().isEmpty)
-              ? null
-              : s.visitorType,
-          isExpanded: true,
-          dropdownColor: Colors.white,
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: Colors.black87,
+        _rounded(
+          hint: 'Días de visita',
+          enabled: stayEnabled,
+          keyboard: const TextInputType.numberWithOptions(
+            signed: false,
+            decimal: false,
           ),
-          iconEnabledColor: Colors.black87,
-          iconDisabledColor: Colors.black38,
-          style: const TextStyle(color: Colors.black),
-          hint: const Text(
-            'Tipo de visitante',
-            style: TextStyle(color: Colors.black54),
-          ),
-          decoration: _decoration(
-            'Tipo de visitante',
-            prefix: const Icon(Icons.badge_outlined),
-          ),
-          items: const [
-            DropdownMenuItem(
-              value: 'local_rapanui',
-              child: Text(
-                'Local (RapaNui)',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'local_no_rapanui',
-              child: Text(
-                'Local no RapaNui',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'continental',
-              child: Text(
-                'Continental',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
-            DropdownMenuItem(
-              value: 'extranjero',
-              child: Text(
-                'Extranjero',
-                style: TextStyle(color: Colors.black87),
-              ),
-            ),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(3),
           ],
-          onChanged: s.isPosting
-              ? null
-              : (v) {
-                  if (v == null) return;
-                  n.visitorTypeChanged(v);
-                },
+          onChanged: (v) => n.setField('stay', v),
+          validator: (v) {
+            if (isLocal) return null; // ✅ local => no validar
+            if (v == null || v.trim().isEmpty) return 'Requerido';
+            final nn = int.tryParse(v);
+            if (nn == null) return 'Solo números';
+            if (nn <= 0) return 'Debe ser > 0';
+            if (nn > 365) return 'Máx 365';
+            return null;
+          },
         ),
+
         const SizedBox(height: 12),
 
         if (s.error != null) ...[
@@ -323,6 +351,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
     required String hint,
     TextInputType? keyboard,
     bool obscure = false,
+    bool enabled = true,
     Widget? suffix,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
@@ -330,26 +359,41 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
   }) {
     return TextFormField(
       cursorColor: Colors.black,
-      style: const TextStyle(color: Colors.black),
+      style: TextStyle(
+        color: enabled ? Colors.black : Colors.black45,
+        fontWeight: FontWeight.w500,
+      ),
+      enabled: enabled,
       onChanged: onChanged,
       keyboardType: keyboard,
       obscureText: obscure,
       inputFormatters: inputFormatters,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: validator,
-      decoration: _decoration(hint, suffix: suffix),
+      decoration: _decoration(hint, suffix: suffix, enabled: enabled),
     );
   }
 
-  InputDecoration _decoration(String hint, {Widget? prefix, Widget? suffix}) {
+  // ✅ AQUÍ está la diferencia: disabled = gris suave (como invitado), NO negro
+  InputDecoration _decoration(
+    String hint, {
+    Widget? prefix,
+    Widget? suffix,
+    bool enabled = true,
+  }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.black54),
+      hintStyle: TextStyle(color: enabled ? Colors.black54 : Colors.black38),
       prefixIcon: prefix,
-      prefixIconColor: Colors.black45,
+      prefixIconColor: enabled ? Colors.black45 : Colors.black26,
       suffixIcon: suffix,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.92),
+
+      // ✅ Igual sensación que invitado: gris claro suave cuando está deshabilitado
+      fillColor: enabled
+          ? Colors.white.withValues(alpha: 0.92)
+          : Colors.grey.withValues(alpha: 0.55),
+
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
@@ -362,6 +406,10 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
       focusedBorder: const OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(24)),
         borderSide: BorderSide(color: Color(0xFF0E4560), width: 1.2),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(24),
+        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.04)),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),

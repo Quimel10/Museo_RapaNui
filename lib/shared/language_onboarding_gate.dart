@@ -1,12 +1,17 @@
+// lib/shared/language_onboarding_gate.dart
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LanguageOnboardingGate {
-  static bool _shownThisSession = false;
+  // ✅ Mostrar 1 vez por “ciclo de login”
+  // - Se setea en true cuando ya se mostró (y persiste aunque cierres la app)
+  // - Se borra al hacer logout
+  static const String _kAuthShownThisLogin =
+      'lang_onboarding_auth_shown_this_login';
 
-  static Future<void> resetSession() async {
-    _shownThisSession = false;
-  }
+  // ✅ Anti-doble show dentro del mismo run (por rebuild / navegación doble)
+  static bool _shownThisRun = false;
 
   static String _normalize(String code) {
     final c = code.trim().toLowerCase().replaceAll('_', '-');
@@ -16,21 +21,39 @@ class LanguageOnboardingGate {
     return base;
   }
 
-  static Future<void> showOncePerSession(
+  /// ✅ Llamar en LOGOUT: permite que en el próximo login vuelva a mostrar.
+  static Future<void> clearForNextLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kAuthShownThisLogin);
+    _shownThisRun = false;
+  }
+
+  /// ✅ Mostrar SOLO si:
+  /// - el usuario está autenticado
+  /// - y no se ha mostrado en ESTE ciclo de login (aunque cierres/abras app)
+  ///
+  /// Importante: guardamos el flag ANTES de abrir el modal para evitar la “segunda vez”.
+  static Future<void> showOncePerLoginCycle(
     BuildContext context, {
     required List<String> allowedCodes,
     required String initialCode,
     required Future<void> Function(String code) onConfirm,
   }) async {
-    if (_shownThisSession) return;
-    _shownThisSession = true;
+    if (_shownThisRun) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyShownThisLogin = prefs.getBool(_kAuthShownThisLogin) ?? false;
+    if (alreadyShownThisLogin) return;
+
+    // ✅ Bloqueo inmediato (evita que salga 2 veces por reconstrucciones)
+    _shownThisRun = true;
+    await prefs.setBool(_kAuthShownThisLogin, true);
 
     // ✅ Idiomas soportados por EasyLocalization
     final supported = context.supportedLocales
         .map((l) => l.languageCode.toLowerCase())
         .toSet();
 
-    // ✅ normaliza y filtra
     final normalized = allowedCodes
         .map(_normalize)
         .where((c) => supported.contains(c))
@@ -50,9 +73,10 @@ class LanguageOnboardingGate {
 
     if (!context.mounted) return;
 
-    await showModalBottomSheet(
+    await showModalBottomSheet<void>(
       context: context,
       isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) {
@@ -73,10 +97,8 @@ class LanguageOnboardingGate {
                   constraints: BoxConstraints(maxHeight: maxH),
                   child: SingleChildScrollView(
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 4),
                         Text(
                           'language_onboarding.title'.tr(),
                           style: const TextStyle(
@@ -95,15 +117,11 @@ class LanguageOnboardingGate {
                         ),
                         const SizedBox(height: 12),
 
-                        // ✅ AQUÍ ESTÁ EL FIX: al tocar la fila, cambiar locale de verdad
                         ...normalized.map((code) {
                           final isSel = code == selected;
                           return InkWell(
                             onTap: () async {
-                              // 1) marcar selección visual
                               setState(() => selected = code);
-
-                              // 2) traducir INMEDIATO al tocar idioma
                               await context.setLocale(Locale(code));
                             },
                             child: Container(
@@ -147,7 +165,7 @@ class LanguageOnboardingGate {
                           );
                         }).toList(),
 
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -160,9 +178,6 @@ class LanguageOnboardingGate {
                             ),
                             onPressed: () async {
                               Navigator.of(ctx).pop();
-
-                              // ✅ Mantén tu flujo: aquí haces lo que necesites
-                              // (guardar idioma, refrescar data, llamar API, etc.)
                               await onConfirm(selected);
                             },
                             child: Text('language_onboarding.confirm'.tr()),
