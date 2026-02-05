@@ -111,19 +111,24 @@ class HomeDatasourceImpl extends HomeDataSource {
     final l = _normLang(lang);
     const cacheKey = 'banners';
 
-    final ts = await _cacheTs(l, cacheKey);
-    if (_isFresh(ts)) {
-      final cached = await _cacheGet(l, cacheKey);
-      if (cached is List) return BannerMapper.jsonToList(cached);
-    }
-
+    // ✅ CLAVE: BANNERS = NETWORK FIRST
+    // Porque en banners necesitas ver cambios al instante.
+    // Cache queda SOLO como fallback si falla la red.
     try {
       final response = await dio.get(
         '/get_banners',
         queryParameters: {
           'lang': l,
-          '_ts': DateTime.now().millisecondsSinceEpoch,
+          '_ts': DateTime.now().millisecondsSinceEpoch, // ✅ cache buster
         },
+        options: Options(
+          // ✅ refuerzo: no-cache a nivel request
+          headers: const {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        ),
       );
 
       _ensureListResponse(response.data, 'get_banners');
@@ -131,6 +136,7 @@ class HomeDatasourceImpl extends HomeDataSource {
 
       return BannerMapper.jsonToList(response.data);
     } on DioException catch (e) {
+      // ✅ fallback cache aunque esté viejo
       final cached = await _cacheGet(l, cacheKey);
       if (cached is List && cached.isNotEmpty) {
         return BannerMapper.jsonToList(cached);

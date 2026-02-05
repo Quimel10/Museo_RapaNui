@@ -24,8 +24,6 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
 
-    // Estamos dentro de un ListView padre,
-    // así que este ListView debe ser shrinkWrap y sin scroll propio.
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -37,10 +35,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
         return _BannerItem(
           banner: banner,
           onPressed: () async {
-            // 1) Analytics (callback desde HomeScreen)
             widget.onTap?.call(banner, index);
-
-            // 2) Acción del banner (popup / externo / nada)
             await _handleTap(context, banner);
           },
         );
@@ -49,7 +44,6 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
   }
 
   Future<void> _handleTap(BuildContext context, BannerEntity b) async {
-    // LOGS para depuración
     debugPrint(
       '[BANNER] TAP -> id=${b.id}, titulo=${b.titulo}, '
       'tipo=${b.tipo}, destino=${b.destino}, popup=${b.popup}',
@@ -59,13 +53,8 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     final hasPopup = (b.popup?.isNotEmpty ?? false);
     final hasLink = (b.destino?.isNotEmpty ?? false);
 
-    debugPrint(
-      '[BANNER] Normalizado -> tipo="$tipo", hasPopup=$hasPopup, hasLink=$hasLink',
-    );
-
     // POPUP explícito o inferido
     if (tipo == 'popup' || (tipo.isEmpty && hasPopup)) {
-      debugPrint('[BANNER] Acción: MOSTRAR POPUP');
       await showDialog(
         context: context,
         barrierDismissible: true,
@@ -76,7 +65,6 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
 
     // LINK externo explícito o inferido
     if (tipo == 'externo' || (tipo.isEmpty && hasLink)) {
-      debugPrint('[BANNER] Acción: ABRIR LINK EXTERNO -> ${b.destino}');
       final uri = Uri.tryParse(b.destino!);
       if (uri != null) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -86,9 +74,29 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
       return;
     }
 
-    // Nulo u otro tipo
     debugPrint('[BANNER] Acción: NINGUNA (tipo="$tipo")');
   }
+}
+
+// -----------------------------------------------------------
+//  HELPERS CACHEKEY
+// -----------------------------------------------------------
+String _safe(String? s) => (s ?? '').trim();
+
+String _bannerCacheKey(BannerEntity b, {required String kind}) {
+  // ✅ Si cambias cualquier metadata del banner, cambia el cacheKey.
+  // Esto fuerza a CachedNetworkImage a no quedarse pegado con algo viejo.
+  // kind: "img" o "popup"
+  return [
+    'banner',
+    kind,
+    b.id.toString(),
+    _safe(b.titulo),
+    _safe(b.tipo),
+    _safe(b.destino),
+    _safe(b.img),
+    _safe(b.popup),
+  ].join('|');
 }
 
 // -----------------------------------------------------------
@@ -116,6 +124,7 @@ class _BannerItem extends StatelessWidget {
               onTap: onPressed,
               child: CachedNetworkImage(
                 imageUrl: banner.img,
+                cacheKey: _bannerCacheKey(banner, kind: 'img'),
                 fit: BoxFit.cover,
                 placeholder: (_, __) => Container(color: AppColors.neutral100),
                 errorWidget: (_, __, ___) => Container(
@@ -128,7 +137,6 @@ class _BannerItem extends StatelessWidget {
                 ),
               ),
             ),
-            // Gradiente inferior para legibilidad del texto
             Positioned.fill(
               child: IgnorePointer(
                 child: DecoratedBox(
@@ -145,7 +153,6 @@ class _BannerItem extends StatelessWidget {
                 ),
               ),
             ),
-            // Título del banner
             Padding(
               padding: const EdgeInsets.all(16),
               child: Align(
@@ -191,7 +198,6 @@ class _BannerPopup extends StatelessWidget {
         constraints: BoxConstraints(maxHeight: maxH, minWidth: double.infinity),
         child: Stack(
           children: [
-            // Imagen scrolleable
             SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
               child: Column(
@@ -212,6 +218,7 @@ class _BannerPopup extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     child: CachedNetworkImage(
                       imageUrl: imageUrl,
+                      cacheKey: 'popup|$imageUrl',
                       fit: BoxFit.contain,
                       width: double.infinity,
                       placeholder: (_, __) => Container(
@@ -236,8 +243,6 @@ class _BannerPopup extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Botón cerrar
             Positioned(
               right: 8,
               top: 8,
@@ -246,8 +251,6 @@ class _BannerPopup extends StatelessWidget {
                 icon: const Icon(Icons.close, color: Colors.white),
               ),
             ),
-
-            // Botón "Entendido"
             Positioned(
               bottom: 16,
               left: 16,
