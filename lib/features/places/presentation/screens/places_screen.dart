@@ -10,8 +10,8 @@ import 'package:disfruta_antofagasta/features/home/presentation/widgets/place_sk
 import 'package:disfruta_antofagasta/features/places/presentation/state/place_provider.dart';
 import 'package:disfruta_antofagasta/features/places/presentation/widgets/section_error.dart';
 import 'package:disfruta_antofagasta/shared/provider/api_client_provider.dart';
-import 'package:disfruta_antofagasta/shared/provider/dio_provider.dart'; // ✅ NUEVO
-import 'package:disfruta_antofagasta/shared/provider/provider.dart'; // ✅ FIX: analyticsProvider
+import 'package:disfruta_antofagasta/shared/provider/dio_provider.dart';
+import 'package:disfruta_antofagasta/shared/provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -112,12 +112,29 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.parchment,
         elevation: 0,
-        title: Text(
-          'pieces.title'.tr(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+        titleSpacing: 16,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'pieces.title'.tr(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'v1.3.4',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -148,7 +165,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
               ),
             ),
             const SizedBox(height: 12),
-
             if (state.categories != null) ...[
               CategoryChipsList(
                 items: state.categories!,
@@ -172,8 +188,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
               ),
               const SizedBox(height: 12),
             ],
-
-            // ✅ Error (sin items)
             if (hasError && items.isEmpty && state.isLoadingPlaces != true) ...[
               SectionError(
                 title: 'Sin conexión',
@@ -184,12 +198,10 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                   _searchCtrl.clear();
                   FocusScope.of(context).unfocus();
 
-                  // ✅ CLAVE: recrea Dio/HttpClient como si reiniciaras la app
                   ref.invalidate(dioProvider);
                   ref.invalidate(apiClientProvider);
                   ref.invalidate(placeProvider);
 
-                  // mini delay para reconstrucción ordenada
                   await Future.delayed(const Duration(milliseconds: 80));
 
                   await ref
@@ -197,15 +209,11 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                       .initForLang(context.locale.languageCode);
                 },
               ),
-            ]
-            // Skeleton
-            else if (state.isLoadingPlaces == true && items.isEmpty) ...[
+            ] else if (state.isLoadingPlaces == true && items.isEmpty) ...[
               const PlaceSkeleton(),
               const SizedBox(height: 12),
               const PlaceSkeleton(),
-            ]
-            // Vacío normal
-            else if (!isSearching && items.isEmpty) ...[
+            ] else if (!isSearching && items.isEmpty) ...[
               SectionError(
                 title: 'Sin resultados',
                 message: 'No se han encontrado piezas para mostrar.',
@@ -219,9 +227,7 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                       .getPlaces(page: 1, categoryId: state.selectedCategoryId);
                 },
               ),
-            ]
-            // Vacío búsqueda
-            else if (isSearching && items.isEmpty) ...[
+            ] else if (isSearching && items.isEmpty) ...[
               SectionError(
                 title: 'No encontramos coincidencias',
                 message: 'Prueba con otra palabra o revisa la escritura.',
@@ -235,9 +241,7 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                       .getPlaces(page: 1, categoryId: state.selectedCategoryId);
                 },
               ),
-            ]
-            // Listado
-            else ...[
+            ] else ...[
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
